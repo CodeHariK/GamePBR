@@ -1,11 +1,13 @@
 package fb
 
-// A CPU image we render into. Backend-agnostic: it knows nothing about how it
-// reaches the screen or disk. Row-major, origin at the top-left.
+// A CPU render target: a color buffer plus a matching depth buffer, so
+// overlapping triangles can be resolved by distance rather than draw order.
+// Backend-agnostic. Row-major, origin at the top-left.
 Framebuffer :: struct {
 	width:  int,
 	height: int,
 	pixels: []Color, // length == width*height
+	depth:  []f32,   // length == width*height; smaller = nearer
 }
 
 create :: proc(width, height: int) -> Framebuffer {
@@ -13,17 +15,28 @@ create :: proc(width, height: int) -> Framebuffer {
 		width  = width,
 		height = height,
 		pixels = make([]Color, width * height),
+		depth  = make([]f32, width * height),
 	}
 }
 
 destroy :: proc(f: ^Framebuffer) {
 	delete(f.pixels)
+	delete(f.depth)
 	f.pixels = nil
+	f.depth = nil
 }
 
 clear :: proc(f: ^Framebuffer, c: Color) {
 	for &p in f.pixels {
 		p = c
+	}
+}
+
+// Reset every depth to `value` (the far plane, e.g. 1.0). Do this each frame
+// before drawing, alongside clear().
+clear_depth :: proc(f: ^Framebuffer, value: f32) {
+	for &d in f.depth {
+		d = value
 	}
 }
 

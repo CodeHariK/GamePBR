@@ -4,17 +4,16 @@ import "core:math"
 import "../fb"
 import m "../math"
 
-// A vertex for the rasterizer: screen-space pixel position + a linear color.
-// (Depth, UVs, and normals arrive in later steps.)
+// A vertex for the rasterizer: screen-space position (xy = pixels, z = depth)
+// plus a linear color. (UVs and normals arrive in later steps.)
 Vertex :: struct {
-	pos:   m.Vec2, // pixel coordinates, origin top-left
+	pos:   m.Vec3, // xy = pixel coords (origin top-left), z = depth, smaller = nearer
 	color: m.Vec3, // linear 0..1
 }
 
 // Edge function: twice the signed area of triangle (a, b, p). Its sign says
 // which side of the directed line a->b the point p lies on; swept across the
-// triangle it also yields the barycentric weights. This one function is the
-// whole rasterizer.
+// triangle it also yields the barycentric weights.
 edge :: proc(a, b, p: m.Vec2) -> f32 {
 	return (p.x - a.x) * (b.y - a.y) - (p.y - a.y) * (b.x - a.x)
 }
@@ -29,16 +28,16 @@ barycentric :: proc(a, b, c, p: m.Vec2) -> (l0, l1, l2: f32) {
 	return
 }
 
-// Fill a triangle, interpolating the vertex colors across it (Gouraud shading).
+// Fill a triangle with per-vertex color interpolation and a depth test, so a
+// nearer fragment survives regardless of the order triangles are drawn in.
 triangle :: proc(f: ^fb.Framebuffer, a, b, c: Vertex) {
-	area := edge(a.pos, b.pos, c.pos)
+	area := edge(a.pos.xy, b.pos.xy, c.pos.xy)
 	if area == 0 {
 		return // degenerate: nothing to fill
 	}
 	inv_area := 1.0 / area
 
-	// Bounding box of the triangle, clamped to the framebuffer, so we only
-	// test pixels that could possibly be covered.
+	// Bounding box of the triangle, clamped to the framebuffer.
 	minx := clamp(int(math.floor(min(a.pos.x, min(b.pos.x, c.pos.x)))), 0, f.width  - 1)
 	maxx := clamp(int(math.ceil (max(a.pos.x, max(b.pos.x, c.pos.x)))), 0, f.width  - 1)
 	miny := clamp(int(math.floor(min(a.pos.y, min(b.pos.y, c.pos.y)))), 0, f.height - 1)
@@ -48,11 +47,10 @@ triangle :: proc(f: ^fb.Framebuffer, a, b, c: Vertex) {
 		for x in minx ..= maxx {
 			p := m.Vec2{f32(x) + 0.5, f32(y) + 0.5} // sample at the pixel center
 
-			w0 := edge(b.pos, c.pos, p)
-			w1 := edge(c.pos, a.pos, p)
-			w2 := edge(a.pos, b.pos, p)
+			w0 := edge(b.pos.xy, c.pos.xy, p)
+			w1 := edge(c.pos.xy, a.pos.xy, p)
+			w2 := edge(a.pos.xy, b.pos.xy, p)
 
-			// Inside when all three edges share the triangle's winding sign.
 			inside := (w0 >= 0 && w1 >= 0 && w2 >= 0) || (w0 <= 0 && w1 <= 0 && w2 <= 0)
 			if !inside {
 				continue
@@ -62,13 +60,21 @@ triangle :: proc(f: ^fb.Framebuffer, a, b, c: Vertex) {
 			l1 := w1 * inv_area
 			l2 := w2 * inv_area
 
+			// Interpolated depth, then the z-test: keep the nearer fragment.
+			z := l0 * a.pos.z + l1 * b.pos.z + l2 * c.pos.z
+			idx := y * f.width + x
+			if z >= f.depth[idx] {
+				continue
+			}
+			f.depth[idx] = z
+
 			col := a.color * l0 + b.color * l1 + c.color * l2
-			fb.set(f, x, y, fb.Color{
+			f.pixels[idx] = fb.Color{
 				r = u8(m.saturate(col.x) * 255),
 				g = u8(m.saturate(col.y) * 255),
 				b = u8(m.saturate(col.z) * 255),
 				a = 255,
-			})
+			}
 		}
 	}
 }

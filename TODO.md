@@ -16,7 +16,7 @@ Learning project: every step ships working code **and** a blog-style write-up in
 
 ## Phase 1 — The rasterizer
 - [x] **03 — Triangle rasterization** · edge functions, barycentric coords, fill → [docs/03-rasterization.md](docs/03-rasterization.md)
-- [ ] **04 — Depth buffer** · z-buffer, correct occlusion → [docs/04-depth-buffer.md](docs/04-depth-buffer.md)
+- [x] **04 — Depth buffer** · z-buffer, correct occlusion → [docs/04-depth-buffer.md](docs/04-depth-buffer.md)
 - [ ] **05 — Camera & MVP transforms** · model/view/projection, perspective divide → [docs/05-camera-mvp.md](docs/05-camera-mvp.md)
 - [ ] **06 — Mesh loading (OBJ)** · parse OBJ, wireframe, then filled → [docs/06-mesh-obj.md](docs/06-mesh-obj.md)
 - [ ] **07 — Texture mapping** · UVs, perspective-correct interpolation, sampling → [docs/07-texturing.md](docs/07-texturing.md)
