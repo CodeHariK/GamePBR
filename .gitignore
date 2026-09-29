@@ -3,3 +3,5 @@ gamepbr.bin
 *.o
 *.dSYM/
 .DS_Store
+/gradient.ppm
+/gradient.png

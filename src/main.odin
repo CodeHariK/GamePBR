@@ -1,11 +1,25 @@
 package main
 
+import "core:fmt"
+import "fb"
+import "utils"
+
 WIDTH  :: 800
 HEIGHT :: 600
 
 main :: proc() {
-	fb := framebuffer_create(WIDTH, HEIGHT)
-	defer framebuffer_destroy(&fb)
+	f := fb.create(WIDTH, HEIGHT)
+	defer fb.destroy(&f)
+
+	// Step 02: render one frame and dump it to disk — proves the
+	// CPU-buffer -> file path, independent of any window.
+	draw_test_gradient(&f)
+	if utils.write_ppm(&f, "gradient.ppm") {
+		fmt.println("wrote gradient.ppm")
+	}
+	if utils.write_png(&f, "gradient.png") {
+		fmt.println("wrote gradient.png")
+	}
 
 	display := display_raylib_create(WIDTH, HEIGHT, "GamePBR")
 	defer display.destroy(&display)
@@ -16,20 +30,17 @@ main :: proc() {
 			break
 		}
 
-		// Step 00 proof-of-life: a gradient so we know the CPU->screen
-		// path works. Steps 03+ replace this with the rasterizer.
-		draw_test_gradient(&fb)
-
-		display.present(&display, &fb)
+		draw_test_gradient(&f)
+		display.present(&display, &f)
 	}
 }
 
-draw_test_gradient :: proc(fb: ^Framebuffer) {
-	for y in 0 ..< fb.height {
-		for x in 0 ..< fb.width {
-			framebuffer_set(fb, x, y, Color{
-				r = u8(255 * x / fb.width),
-				g = u8(255 * y / fb.height),
+draw_test_gradient :: proc(f: ^fb.Framebuffer) {
+	for y in 0 ..< f.height {
+		for x in 0 ..< f.width {
+			fb.set(f, x, y, fb.Color{
+				r = u8(255 * x / f.width),
+				g = u8(255 * y / f.height),
 				b = 64,
 				a = 255,
 			})
