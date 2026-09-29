@@ -10,4 +10,8 @@ run:
 release:
 	$(ODIN) build $(SRC) -out:$(OUT) -o:speed
 
-.PHONY: run release
+# unit tests (math package)
+test:
+	$(ODIN) test src/math
+
+.PHONY: run release test

@@ -10,8 +10,8 @@ Learning project: every step ships working code **and** a blog-style write-up in
 ---
 
 ## Phase 0 — Foundations
-- [ ] **00 — Project setup & toolchain** · window/framebuffer, main loop, write an image to disk → [docs/00-setup.md](docs/00-setup.md)
-- [ ] **01 — Math foundations** · vectors, matrices, transforms, color helpers → [docs/01-math.md](docs/01-math.md)
+- [x] **00 — Project setup & toolchain** · window/framebuffer, main loop, write an image to disk → [docs/00-setup.md](docs/00-setup.md)
+- [x] **01 — Math foundations** · vectors, matrices, transforms, color helpers → [docs/01-math.md](docs/01-math.md)
 - [ ] **02 — Framebuffer & image output** · pixel buffer, clear, PPM then PNG → [docs/02-framebuffer.md](docs/02-framebuffer.md)
 
 ## Phase 1 — The rasterizer
