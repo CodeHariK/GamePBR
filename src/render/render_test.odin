@@ -58,3 +58,15 @@ test_depth_occludes :: proc(t: ^testing.T) {
 	px := f.pixels[5 * 10 + 5] // center pixel
 	testing.expect(t, px.b > 200 && px.r < 50) // still blue: far red was rejected
 }
+
+@(test)
+test_texture_sample :: proc(t: ^testing.T) {
+	tex := make_checker(2, 2, fb.Color{255, 0, 0, 255}, fb.Color{0, 0, 255, 255})
+	defer texture_destroy(&tex)
+	// cell 1: (0,0)=red; sample (0.25,0.75) -> x=0,y=0 (v flipped) -> red
+	c := sample(&tex, 0.25, 0.75)
+	testing.expect(t, c.x > 0.9 && c.z < 0.1)
+	// wrap: u=1.25 samples the same as 0.25
+	c2 := sample(&tex, 1.25, 0.75)
+	testing.expect(t, abs(c.x - c2.x) < 1e-6 && abs(c.z - c2.z) < 1e-6)
+}

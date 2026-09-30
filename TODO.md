@@ -19,7 +19,7 @@ Learning project: every step ships working code **and** a blog-style write-up in
 - [x] **04 — Depth buffer** · z-buffer, correct occlusion → [docs/04-depth-buffer.md](docs/04-depth-buffer.md)
 - [x] **05 — Camera & MVP transforms** · model/view/projection, perspective divide → [docs/05-camera-mvp.md](docs/05-camera-mvp.md)
 - [x] **06 — Mesh loading (OBJ)** · parse OBJ, wireframe, then filled → [docs/06-mesh-obj.md](docs/06-mesh-obj.md)
-- [ ] **07 — Texture mapping** · UVs, perspective-correct interpolation, sampling → [docs/07-texturing.md](docs/07-texturing.md)
+- [x] **07 — Texture mapping** · UVs, perspective-correct interpolation, sampling → [docs/07-texturing.md](docs/07-texturing.md)
 - [ ] **08 — Normals & tangent space** · per-vertex normals, TBN, normal mapping → [docs/08-normals-tangent.md](docs/08-normals-tangent.md)
 
 ## Phase 2 — Lighting → PBR
