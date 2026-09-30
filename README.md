@@ -41,6 +41,18 @@ Read the matching post in [`docs/`](docs/) alongside the code. The full roadmap 
 | `step-17` | Performance pass | [docs/17-performance.md](docs/17-performance.md) |
 | `step-18` | WebGPU port | [docs/18-webgpu-port.md](docs/18-webgpu-port.md) |
 
+## References
+
+- https://www.songho.ca/opengl/gl_projectionmatrix.html
+- 
+- [Lecture 07: Perspective Projection and Texture Mapping (CMU 15-462/662)](https://www.youtube.com/watch?v=_4Q4O2Kgdo4&list=PL9_jI1bdZmz2emSh0UQ5iOdT2xRHFHL7E&index=8)
+- [Intro to Graphics 06 - 3D Transformations](https://www.youtube.com/watch?v=1z1S2kQKXDs&list=PLplnkTzzqsZTfYh4UbhLGpI5kGd5oW_Hh&index=7)
+- [Quick Understanding of Homogeneous Coordinates for Computer Graphics](https://www.youtube.com/watch?v=o-xwmTODTUI)
+- [The Math behind (most) 3D games - Perspective Projection](https://www.youtube.com/watch?v=U0_ONQQ5ZNM)
+- [Perspective projection in 5 minutes](https://www.youtube.com/watch?v=F5WA26W4JaM&list=PLWfDJ5nla8UpwShx-lzLJqcp575fKpsSO&index=12)
+- [How do Video Game Graphics Work?](https://www.youtube.com/watch?v=C8YtdC8mxTU)
+- [How LookAt Camera Really Works (Math Explained)](https://www.youtube.com/watch?v=kEojgGHnoi4)
+
 ## Build & run
 
 Requires the [Odin compiler](https://odin-lang.org/docs/install/) on your PATH. raylib ships with Odin (`vendor:raylib`), so there's nothing else to install.

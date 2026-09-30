@@ -73,3 +73,47 @@ mat4_mul_dir :: proc(m: Mat4, d: Vec3) -> Vec3 {
 
 // (Odin also provides builtin `transpose(m)` and `core:math/linalg.inverse`
 //  when we need them later.)
+
+// --- Camera matrices (added in step 05) ---
+
+// Right-handed orthographic projection with NDC z in [0, 1] (matches our depth
+// convention and WebGPU/Metal). Maps the box [left,right] x [bottom,top] x
+// [-near,-far] onto the cube [-1,1]^2 x [0,1]. No perspective divide: w stays 1,
+// so parallel lines stay parallel and size is independent of distance.
+mat4_orthographic :: proc(left, right, bottom, top, near, far: f32) -> Mat4 {
+	return Mat4{
+		2 / (right - left), 0,                  0,                -(right + left) / (right - left),
+		0,                  2 / (top - bottom), 0,                -(top + bottom) / (top - bottom),
+		0,                  0,                  -1 / (far - near), -near / (far - near),
+		0,                  0,                  0,                 1,
+	}
+}
+
+// Right-handed perspective projection with NDC z in [0, 1] (matches our depth
+// convention and WebGPU/Metal). fov_y is the vertical field of view in radians;
+// aspect = width/height. The camera looks down its local -z.
+mat4_perspective :: proc(fov_y, aspect, near, far: f32) -> Mat4 {
+	f := 1.0 / math.tan(fov_y * 0.5)
+	return Mat4{
+		f / aspect, 0, 0,                  0,
+		0,          f, 0,                  0,
+		0,          0, far / (near - far), (far * near) / (near - far),
+		0,          0, -1,                 0,
+	}
+}
+
+// p_cam = view · p_world = Rᵀ · T(−eye) · p_world = Rᵀ · (p_world − eye)
+// Right-handed look-at view matrix: camera at `eye` looking toward `target`,
+// with `up` giving roll. Rows are the camera's right / up / -forward axes plus
+// the translation that moves the eye to the origin.
+mat4_look_at :: proc(eye, target, up: Vec3) -> Mat4 {
+	f := normalize(target - eye) // forward
+	s := normalize(cross(f, up)) // right
+	u := cross(s, f)             // true up
+	return Mat4{
+		 s.x,  s.y,  s.z, -dot(s, eye),
+		 u.x,  u.y,  u.z, -dot(u, eye),
+		-f.x, -f.y, -f.z,  dot(f, eye),
+		 0,    0,    0,     1,
+	}
+}
