@@ -44,7 +44,7 @@ Read the matching post in [`docs/`](docs/) alongside the code. The full roadmap 
 ## References
 
 - https://www.songho.ca/opengl/gl_projectionmatrix.html
-- 
+
 - [Lecture 07: Perspective Projection and Texture Mapping (CMU 15-462/662)](https://www.youtube.com/watch?v=_4Q4O2Kgdo4&list=PL9_jI1bdZmz2emSh0UQ5iOdT2xRHFHL7E&index=8)
 - [Intro to Graphics 06 - 3D Transformations](https://www.youtube.com/watch?v=1z1S2kQKXDs&list=PLplnkTzzqsZTfYh4UbhLGpI5kGd5oW_Hh&index=7)
 - [Quick Understanding of Homogeneous Coordinates for Computer Graphics](https://www.youtube.com/watch?v=o-xwmTODTUI)

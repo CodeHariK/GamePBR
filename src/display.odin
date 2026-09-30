@@ -3,16 +3,15 @@ package main
 import "fb"
 
 // The display seam: everything the renderer needs from "the outside world"
-// lives behind these four procedures. The raylib backend fills them in today;
-// the WebGPU/GLFW backend replaces just display_raylib.odin at step 18.
+// lives behind these four procedures.
 
 Input :: struct {
-	quit: bool,
-	// grows in step 05: movement keys, mouse delta, etc.
+	quit:        bool,
+	toggle_wire: bool, // 'W' pressed this frame
 }
 
 Display :: struct {
-	user_data:    rawptr, // backend-owned state, opaque to the renderer
+	user_data:    rawptr,
 
 	present:      proc(d: ^Display, f: ^fb.Framebuffer),
 	poll_input:   proc(d: ^Display) -> Input,

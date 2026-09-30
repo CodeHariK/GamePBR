@@ -46,7 +46,10 @@ raylib_present :: proc(d: ^Display, f: ^fb.Framebuffer) {
 }
 
 raylib_poll_input :: proc(d: ^Display) -> Input {
-	return Input{quit = rl.IsKeyPressed(.ESCAPE)}
+	return Input{
+		quit        = rl.IsKeyPressed(.ESCAPE),
+		toggle_wire = rl.IsKeyPressed(.W),
+	}
 }
 
 raylib_should_close :: proc(d: ^Display) -> bool {
