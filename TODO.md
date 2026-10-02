@@ -24,7 +24,7 @@ Learning project: every step ships working code **and** a blog-style write-up in
 
 ## Phase 2 — Lighting → PBR
 - [x] **09 — Baseline lighting** · Lambert diffuse + Blinn-Phong (the "before") → [docs/09-baseline-lighting.md](docs/09-baseline-lighting.md)
-- [ ] **10 — PBR theory** · radiometry, the rendering equation, BRDF, energy conservation → [docs/10-pbr-theory.md](docs/10-pbr-theory.md)
+- [x] **10 — PBR theory** · radiometry, the rendering equation, BRDF, energy conservation → [docs/10-pbr-theory.md](docs/10-pbr-theory.md)
 - [ ] **11 — Cook-Torrance direct lighting** · GGX (D), Smith (G), Fresnel-Schlick (F) → [docs/11-cook-torrance.md](docs/11-cook-torrance.md)
 - [ ] **12 — Metallic-roughness workflow** · albedo/metallic/roughness textures, F0 → [docs/12-metallic-roughness.md](docs/12-metallic-roughness.md)
 - [ ] **13 — Multiple & typed lights** · point, directional, spot; attenuation → [docs/13-lights.md](docs/13-lights.md)

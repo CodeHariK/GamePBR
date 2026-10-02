@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PBR theory — the rendering equation, BRDFs & energy</title>
+<style>
+  :root {
+    --bg: #0f0f14; --panel: #171720; --ink: #e8e8ef; --muted: #9a9ab0;
+    --line: #2a2a38; --accent: #ffb454; --diff: #e05a4e; --spec: #5bc0ff; --bad: #ff4d4d; --good: #6bd08a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.6 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    padding: 28px 18px 60px;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; }
+  h1 { font-size: 24px; margin: 0 0 6px; }
+  h2 { font-size: 17px; margin: 30px 0 4px; }
+  p { color: var(--muted); margin: 8px 0; }
+  .eq {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    padding: 10px 14px; color: var(--ink); display: inline-block; margin: 6px 0;
+  }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-top: 12px; }
+  canvas { width: 100%; display: block; border-radius: 8px; background: #0b0b10; touch-action: none; }
+  .row { display: flex; flex-wrap: wrap; gap: 18px 26px; align-items: center; margin-top: 12px; }
+  .ctl { display: flex; flex-direction: column; gap: 2px; min-width: 150px; }
+  .ctl label { font-size: 12px; color: var(--muted); }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .read { font-family: ui-monospace, Menlo, monospace; font-size: 13px; }
+  .k { display: inline-block; width: 11px; height: 11px; border-radius: 2px; vertical-align: -1px; margin-right: 5px; }
+  .pill { font-family: ui-monospace, Menlo, monospace; padding: 2px 8px; border-radius: 6px; border: 1px solid var(--line); }
+  .hint { font-size: 12px; color: var(--muted); font-style: italic; }
+  b.good { color: var(--good); } b.bad { color: var(--bad); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>PBR theory — in three pictures</h1>
+  <p>Companion to <b>GamePBR step 10</b>. The math behind physically-based shading, made draggable. Everything here is the groundwork for the Cook-Torrance BRDF in step 11.</p>
+
+  <h2>1 · The rendering equation</h2>
+  <p>The light leaving a surface toward your eye is the sum, over every incoming direction on the hemisphere, of arriving light times how much the surface bounces it your way — times a <b>cosine</b> that accounts for how slanted light spreads thin.</p>
+  <div class="eq">Lo(wo) = &#8747;<sub>&#937;</sub> &nbsp;f(wo, wi) &middot; Li(wi) &middot; (N&middot;wi) &nbsp;dwi</div>
+  <div class="card">
+    <canvas id="cv1" width="880" height="420"></canvas>
+    <div class="row">
+      <div class="ctl"><label>light direction &theta;<sub>i</sub> — <span id="l1">35&deg;</span></label><input id="s1" type="range" min="0" max="89" value="35"></div>
+      <div class="read">
+        <div><span class="k" style="background:var(--accent)"></span>N&middot;wi (cosine term) = <span id="r1">0.82</span></div>
+        <div class="hint">Drag on the canvas to orbit. Lower the light and the cosine — and the shading — fades to zero at the horizon.</div>
+      </div>
+    </div>
+  </div>
+
+  <h2>2 · What a BRDF is — and energy conservation</h2>
+  <p>A <b>BRDF</b> <span class="eq" style="padding:2px 8px">f(wo, wi)</span> is the shape of the bounce. Below: the diffuse (Lambert) lobe is a fat cosine hemisphere; the specular lobe is a thin petal around the mirror direction. The number that matters is the <b>hemispherical reflectance</b> — integrate the lobe and you learn what fraction of incident light leaves. Physical means it never exceeds <span class="pill">1.0</span>.</p>
+  <div class="card">
+    <canvas id="cv2" width="880" height="420"></canvas>
+    <div class="row">
+      <div class="ctl"><label>view angle &theta;<sub>o</sub> — <span id="l2">30&deg;</span></label><input id="s2" type="range" min="0" max="80" value="30"></div>
+      <div class="ctl"><label>shininess (Blinn-Phong exponent) — <span id="l3">32</span></label><input id="s3" type="range" min="1" max="256" value="32"></div>
+      <div class="read">
+        <div><span class="k" style="background:var(--diff)"></span>diffuse lobe &nbsp; <span class="k" style="background:var(--spec)"></span>specular lobe</div>
+        <div>raw specular reflectance R = <b id="r2" class="bad">2.61</b> <span class="hint">(red &gt; 1 = reflects more than it receives)</span></div>
+      </div>
+    </div>
+    <p class="hint">This is the <b>un-normalized</b> step-09 lobe, the one the renderer actually used. For a broad highlight it reflects several times the incident energy; crank the exponent and it loses almost all of it. That untethering is exactly what step 11's GGX normalization fixes.</p>
+  </div>
+
+  <h2>3 · The faults this names</h2>
+  <p>Hold the baseline up to the constraints: no <span class="pill">1/&pi;</span> on the diffuse, an arbitrary specular tint, no Fresnel, no geometric shadowing, and a specular lobe that fails the energy bound above. Cook-Torrance (step 11) replaces the two lobes with terms — D, G, F — that each have a physical job and together stay under 1.0.</p>
+</div>
+<script>
+const TAU = Math.PI * 2;
+const D2R = Math.PI / 180;
+function clamp(x,a,b){ return Math.max(a, Math.min(b, x)); }
+
+/* ============ Canvas 1 — the rendering equation (pseudo-3D hemisphere) ============ */
+(function(){
+  const cv = document.getElementById('cv1'), g = cv.getContext('2d');
+  const W = cv.width, H = cv.height, cx = W*0.42, cy = H*0.62, scale = 150;
+  let az = 0.7, el = 0.62, thetaI = 35*D2R;
+  const PHI = 0.7; // fixed light azimuth
+
+  function proj(p){
+    const ca=Math.cos(az), sa=Math.sin(az);
+    const x = p.x*ca - p.y*sa, y = p.x*sa + p.y*ca, z = p.z;
+    return { X: cx + x*scale, Y: cy - z*scale*Math.cos(el) + y*scale*Math.sin(el) };
+  }
+  function arrow(a, b, col, w){
+    g.strokeStyle=col; g.fillStyle=col; g.lineWidth=w||2;
+    g.beginPath(); g.moveTo(a.X,a.Y); g.lineTo(b.X,b.Y); g.stroke();
+    const ang=Math.atan2(b.Y-a.Y, b.X-a.X), s=9;
+    g.beginPath(); g.moveTo(b.X,b.Y);
+    g.lineTo(b.X-s*Math.cos(ang-0.4), b.Y-s*Math.sin(ang-0.4));
+    g.lineTo(b.X-s*Math.cos(ang+0.4), b.Y-s*Math.sin(ang+0.4));
+    g.closePath(); g.fill();
+  }
+  function draw(){
+    g.clearRect(0,0,W,H);
+    // base disk ellipse
+    g.strokeStyle='#39394a'; g.lineWidth=1.5; g.beginPath();
+    for(let i=0;i<=72;i++){ const a=i/72*TAU; const p=proj({x:Math.cos(a),y:Math.sin(a),z:0}); i?g.lineTo(p.X,p.Y):g.moveTo(p.X,p.Y); }
+    g.stroke();
+    // hemisphere longitude arcs
+    g.strokeStyle='#26263a';
+    for(let k=0;k<12;k++){ const lon=k/12*TAU; g.beginPath();
+      for(let i=0;i<=24;i++){ const t=i/24*Math.PI/2; const p=proj({x:Math.sin(t)*Math.cos(lon),y:Math.sin(t)*Math.sin(lon),z:Math.cos(t)}); i?g.lineTo(p.X,p.Y):g.moveTo(p.X,p.Y);} g.stroke(); }
+    // latitude rings
+    for(let k=1;k<=3;k++){ const t=k/4*Math.PI/2; g.beginPath();
+      for(let i=0;i<=48;i++){ const a=i/48*TAU; const p=proj({x:Math.sin(t)*Math.cos(a),y:Math.sin(t)*Math.sin(a),z:Math.cos(t)}); i?g.lineTo(p.X,p.Y):g.moveTo(p.X,p.Y);} g.stroke(); }
+    const O=proj({x:0,y:0,z:0});
+    // surface patch
+    g.fillStyle='#1c1c28'; g.beginPath();
+    [[-.28,-.28],[.28,-.28],[.28,.28],[-.28,.28]].forEach((c,i)=>{const p=proj({x:c[0],y:c[1],z:0}); i?g.lineTo(p.X,p.Y):g.moveTo(p.X,p.Y);}); g.closePath(); g.fill();
+    // Normal N
+    arrow(O, proj({x:0,y:0,z:1}), '#ffb454', 2.5);
+    g.fillStyle='#ffb454'; g.font='13px monospace'; const nt=proj({x:0,y:0,z:1}); g.fillText('N', nt.X+6, nt.Y);
+    // incoming light wi
+    const wi={x:Math.sin(thetaI)*Math.cos(PHI), y:Math.sin(thetaI)*Math.sin(PHI), z:Math.cos(thetaI)};
+    const Wi=proj(wi); arrow(Wi, O, '#5bc0ff', 2.5);
+    // sun
+    g.fillStyle='#ffe08a'; g.beginPath(); g.arc(Wi.X,Wi.Y,7,0,TAU); g.fill();
+    g.fillStyle='#5bc0ff'; g.fillText('wi', Wi.X+9, Wi.Y-6);
+    // cosine foreshortening bar
+    const c=Math.cos(thetaI);
+    g.fillStyle='#e05a4e'; g.fillRect(W-150, cy-90, 26, 1); // baseline marker at full
+    g.fillStyle='rgba(224,90,78,0.9)'; g.fillRect(W-150, cy-90, 26, 90*c);
+    g.strokeStyle='#555'; g.strokeRect(W-150, cy-90, 26, 90);
+    g.fillStyle='#9a9ab0'; g.font='11px monospace'; g.fillText('N·wi', W-152, cy+16);
+  }
+  function setT(v){ thetaI=v*D2R; document.getElementById('l1').textContent=v+'°';
+    document.getElementById('r1').textContent=Math.cos(thetaI).toFixed(2); draw(); }
+  document.getElementById('s1').addEventListener('input', e=>setT(+e.target.value));
+  // drag orbit
+  let drag=false,px=0,py=0;
+  cv.addEventListener('pointerdown',e=>{drag=true;px=e.offsetX;py=e.offsetY;cv.setPointerCapture(e.pointerId);});
+  cv.addEventListener('pointermove',e=>{ if(!drag)return; az+=(e.offsetX-px)*0.01; el=clamp(el-(e.offsetY-py)*0.01,0.15,1.4); px=e.offsetX;py=e.offsetY; draw(); });
+  cv.addEventListener('pointerup',()=>drag=false);
+  setT(35);
+})();
+
+/* ============ Canvas 2 — BRDF lobes + hemispherical reflectance ============ */
+(function(){
+  const cv = document.getElementById('cv2'), g = cv.getContext('2d');
+  const W = cv.width, H = cv.height, cx = W*0.5, cy = H*0.86, R = 150;
+  let thetaO = 30*D2R, shin = 32;
+
+  // numeric hemispherical reflectance of raw Blinn-Phong: ∫ (N·H)^n cosθi dωi
+  function reflectance(wo, n){
+    const N={x:0,y:0,z:1}; let acc=0, M=64;
+    for(let i=0;i<M;i++) for(let j=0;j<M;j++){
+      const u1=(i+0.5)/M, u2=(j+0.5)/M;
+      const z=u1, r=Math.sqrt(Math.max(0,1-z*z)), ph=TAU*u2;
+      const wi={x:r*Math.cos(ph), y:r*Math.sin(ph), z:z};
+      let hx=wo.x+wi.x, hy=wo.y+wi.y, hz=wo.z+wi.z;
+      const hl=Math.hypot(hx,hy,hz)||1; hz/=hl;
+      acc += Math.pow(Math.max(0,hz), n) * wi.z;
+    }
+    return acc * (TAU / (M*M));
+  }
+  function draw(){
+    g.clearRect(0,0,W,H);
+    // surface + normal
+    g.strokeStyle='#39394a'; g.lineWidth=1.5;
+    g.beginPath(); g.moveTo(cx-R-30,cy); g.lineTo(cx+R+30,cy); g.stroke();
+    g.strokeStyle='#ffb454'; g.beginPath(); g.moveTo(cx,cy); g.lineTo(cx,cy-R-24); g.stroke();
+    g.fillStyle='#ffb454'; g.font='13px monospace'; g.fillText('N', cx+6, cy-R-20);
+    // grid arcs
+    g.strokeStyle='#20202c';
+    for(let k=1;k<=3;k++){ g.beginPath(); g.arc(cx,cy,R*k/3,Math.PI,TAU); g.stroke(); }
+    // diffuse lobe: radius ∝ cosθ (half scale)
+    g.strokeStyle='#e05a4e'; g.lineWidth=2; g.beginPath();
+    for(let i=0;i<=60;i++){ const th=-Math.PI/2 + i/60*Math.PI; const rad=Math.max(0,Math.cos(th))*R*0.5;
+      const X=cx+Math.sin(th)*rad, Y=cy-Math.cos(th)*rad; i?g.lineTo(X,Y):g.moveTo(X,Y);} g.stroke();
+    // specular lobe: light from N (θL=0), H=normalize(V+N), radius=(cos(θo/2))^n
+    g.strokeStyle='#5bc0ff'; g.lineWidth=2; g.beginPath();
+    for(let i=0;i<=120;i++){ const th=-Math.PI/2 + i/120*Math.PI; const rad=Math.pow(Math.cos(th/2), shin)*R;
+      const X=cx+Math.sin(th)*rad, Y=cy-Math.cos(th)*rad; i?g.lineTo(X,Y):g.moveTo(X,Y);} g.stroke();
+    // view direction arrow at θo
+    const vx=cx+Math.sin(thetaO)*(R+18), vy=cy-Math.cos(thetaO)*(R+18);
+    g.strokeStyle='#cfcfe0'; g.fillStyle='#cfcfe0'; g.lineWidth=2;
+    g.beginPath(); g.moveTo(cx,cy); g.lineTo(vx,vy); g.stroke();
+    g.beginPath(); g.arc(vx,vy,4,0,TAU); g.fill();
+    g.font='12px monospace'; g.fillText('wo', vx+6, vy);
+  }
+  function update(){
+    const wo={x:Math.sin(thetaO),y:0,z:Math.cos(thetaO)};
+    const Rv=reflectance(wo, shin);
+    const el=document.getElementById('r2');
+    el.textContent=Rv.toFixed(2);
+    el.className = Rv>1 ? 'bad' : 'good';
+    draw();
+  }
+  document.getElementById('s2').addEventListener('input',e=>{ thetaO=(+e.target.value)*D2R; document.getElementById('l2').textContent=e.target.value+'°'; update(); });
+  document.getElementById('s3').addEventListener('input',e=>{ shin=+e.target.value; document.getElementById('l3').textContent=e.target.value; update(); });
+  update();
+})();
+</script>
+</body>
+</html>
