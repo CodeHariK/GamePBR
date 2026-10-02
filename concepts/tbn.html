@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tangent space & TBN — normal mapping</title>
+<style>
+:root{
+  --bg:#0e0e15;--panel:#171722;--panel2:#1e1e2b;--line:#2a2a3a;
+  --text:#e7e7f0;--muted:#9a9ab2;--teal:#4fd1c5;--green:#68d391;--orange:#f6ad55;--blue:#63b3ed;--pink:#f687b3;--white:#eef;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.wrap{max-width:1080px;margin:0 auto;padding:34px 20px 90px}
+h1{font-size:27px;margin:0 0 4px;letter-spacing:-.3px}
+.sub{color:var(--muted);margin:0 0 22px}
+h2{font-size:19px;margin:38px 0 10px;border-bottom:1px solid var(--line);padding-bottom:6px}
+p{color:#d6d6e6}
+code{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;background:#20202c;padding:1px 5px;border-radius:4px;font-size:13px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+.card h4{margin:0 0 8px;font-size:13px;color:var(--muted);font-weight:600;letter-spacing:.3px;text-transform:uppercase}
+canvas{width:100%;height:auto;display:block;border-radius:8px;background:#0a0a11;touch-action:none;cursor:grab}
+.stage{display:grid;grid-template-columns:1.2fr .8fr;gap:16px;margin:10px 0 6px}
+@media(max-width:860px){.stage{grid-template-columns:1fr}}
+.controls{display:flex;flex-wrap:wrap;gap:16px;margin:12px 0;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.ctl{display:flex;flex-direction:column;gap:4px;min-width:120px}
+.ctl label{font-size:12px;color:var(--muted)}
+.ctl output{font-family:ui-monospace,Menlo,monospace;color:var(--text);font-size:12px}
+input[type=range]{accent-color:var(--teal);width:140px}
+.legend{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.9}
+.sw{display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:middle;margin:0 5px 0 2px}
+.readout{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:var(--muted);line-height:1.9}
+.readout b{color:var(--text)}
+.chip{display:inline-block;width:20px;height:20px;border-radius:4px;vertical-align:middle;border:1px solid var(--line);margin-left:6px}
+.eq{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--teal);border-radius:8px;padding:12px 14px;margin:12px 0;font-family:ui-monospace,Menlo,monospace;font-size:13px;overflow-x:auto;white-space:pre}
+.note{background:#20202c;border:1px solid var(--line);border-radius:8px;padding:10px 14px;color:var(--muted);font-size:14px;margin:12px 0}
+a{color:var(--teal)}
+.nav{margin-top:44px;padding-top:16px;border-top:1px solid var(--line);color:var(--muted);display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.subpanels{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:620px){.subpanels{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Tangent space &amp; the TBN basis</h1>
+  <p class="sub">GamePBR concepts &middot; how a normal map's <b>3 stored numbers</b> become a world-space normal, and where the tangent comes from. Companion to <a href="../docs/08-normals-tangent.md">step 08</a>.</p>
+
+  <div class="note">A tangent-space normal map stores only a <b>normal</b> per texel &mdash; three numbers <code>(nx,ny,nz)</code>, packed as RGB. The <b>TBN frame is not in the image</b>; it's rebuilt from the mesh at render time (T, N per vertex; B = cross(N,T)). That's why the map is blue: it stores normals that mostly point straight out, <code>(0,0,1) &rarr; (0.5,0.5,1)</code>.</div>
+
+  <h2>1 &middot; A tangent-space normal &rarr; world</h2>
+  <p>Drag to orbit. The frame <span style="color:var(--teal)">T</span> / <span style="color:var(--green)">B</span> / <span style="color:var(--orange)">N</span> is glued to the surface. Tilt the stored (tangent-space) normal with the sliders and watch the white world normal swing: <code>n_world = nx&middot;T + ny&middot;B + nz&middot;N</code>. Spin the surface and notice the <b>stored</b> normal and its blue RGB never change &mdash; only the world result does. That's the whole reason one little blue image works on any surface.</p>
+
+  <div class="controls">
+    <div class="ctl"><label>bump tilt &theta; <output id="oTheta"></output></label><input id="theta" type="range" min="0" max="70" value="35"></div>
+    <div class="ctl"><label>bump direction &phi; <output id="oPhi"></output></label><input id="phi" type="range" min="0" max="360" value="30"></div>
+    <div class="ctl"><label>surface tilt <output id="oSurfT"></output></label><input id="surfT" type="range" min="-60" max="60" value="0"></div>
+    <div class="ctl"><label>surface yaw <output id="oSurfY"></output></label><input id="surfY" type="range" min="-90" max="90" value="0"></div>
+  </div>
+
+  <div class="stage">
+    <div class="card">
+      <h4>The TBN frame (drag to orbit)</h4>
+      <canvas id="c3d" width="560" height="440"></canvas>
+      <div class="legend">
+        <span class="sw" style="background:var(--teal)"></span>T (tangent, +U)
+        <span class="sw" style="background:var(--green)"></span>B (bitangent, +V)
+        <span class="sw" style="background:var(--orange)"></span>N (geometric normal)
+        <span class="sw" style="background:var(--white)"></span>n_world (perturbed)
+      </div>
+    </div>
+    <div class="card">
+      <h4>What's stored vs computed</h4>
+      <div class="readout" id="read3d"></div>
+    </div>
+  </div>
+
+  <h2>2 &middot; Where T comes from (UV &rarr; tangent)</h2>
+  <p>The tangent is the 3D direction of <b>+U</b> on the surface. Drag the UV vertices on the left; the <span style="color:var(--teal)">T</span> and <span style="color:var(--green)">B</span> arrows on the (planar) triangle recompute live from the 2&times;2 UV solve. Flip a UV across its neighbors (make the area negative) and watch T flip &mdash; that's the handedness issue mirrored UVs cause.</p>
+
+  <div class="card">
+    <div class="subpanels">
+      <canvas id="cuvA" width="300" height="300"></canvas>
+      <canvas id="cuvB" width="300" height="300"></canvas>
+    </div>
+    <div class="legend">Left: UV space (drag the dots). Right: the triangle in 3D (planar), with T/B from the solve.</div>
+    <div class="eq" id="uvEq"></div>
+  </div>
+
+  <h2>The formulas, briefly</h2>
+  <div class="eq">T = (1/det)&middot;( &Delta;V2&middot;E1 &minus; &Delta;V1&middot;E2 )     det = &Delta;U1&middot;&Delta;V2 &minus; &Delta;U2&middot;&Delta;V1
+T &larr; T &minus; (N&middot;T)N   (orthonormalize)       B = cross(N, T)
+
+n_world = nx&middot;T + ny&middot;B + nz&middot;N = [ T | B | N ] &middot; (nx,ny,nz)</div>
+  <p>Full derivations are in <a href="../docs/08-normals-tangent.md">docs/08</a>. The short story: E = &Delta;U&middot;T + &Delta;V&middot;B per edge (because position is affine in UV on a triangle), invert the 2&times;2 of UV deltas to get T; and <code>n_world</code> is just the decoded normal read back through the basis it was stored in.</p>
+
+  <div class="nav">
+    <span>&larr; <a href="../docs/08-normals-tangent.md">Step 08 — Normals &amp; tangent space</a></span>
+    <span><a href="rotation-derivation.md">Rotation derivation</a></span>
+  </div>
+</div>
+
+<script>
+(function(){
+  // ---------- vec3 ----------
+  const V=(x,y,z)=>({x,y,z});
+  const add=(a,b)=>V(a.x+b.x,a.y+b.y,a.z+b.z);
+  const sub=(a,b)=>V(a.x-b.x,a.y-b.y,a.z-b.z);
+  const mul=(a,s)=>V(a.x*s,a.y*s,a.z*s);
+  const dot=(a,b)=>a.x*b.x+a.y*b.y+a.z*b.z;
+  const cross=(a,b)=>V(a.y*b.z-a.z*b.y,a.z*b.x-a.x*b.z,a.x*b.y-a.y*b.x);
+  const norm=(a)=>{const l=Math.hypot(a.x,a.y,a.z)||1;return V(a.x/l,a.y/l,a.z/l);};
+  const rad=d=>d*Math.PI/180;
+
+  function rotX(v,a){const c=Math.cos(a),s=Math.sin(a);return V(v.x, v.y*c - v.z*s, v.y*s + v.z*c);}
+  function rotY(v,a){const c=Math.cos(a),s=Math.sin(a);return V(v.x*c + v.z*s, v.y, -v.x*s + v.z*c);}
+
+  // ---------- canvas 1: 3D TBN ----------
+  const c3d=document.getElementById('c3d'), g=c3d.getContext('2d');
+  const W=c3d.width,H=c3d.height;
+  let camAz=0.6, camEl=0.62;
+  const S={theta:35,phi:30,surfT:0,surfY:0};
+  const el=id=>document.getElementById(id);
+
+  function proj(p){ // camera orbit (yaw az, pitch el) then orthographic
+    let q=rotY(p,camAz); q=rotX(q,camEl);
+    const scale=95;
+    return {x:W/2+q.x*scale, y:H/2-q.y*scale, z:q.z};
+  }
+  function arrow(p0,p1,col,wdt,dash){
+    const a=proj(p0), b=proj(p1);
+    g.strokeStyle=col;g.fillStyle=col;g.lineWidth=wdt||2.5;g.setLineDash(dash||[]);
+    g.beginPath();g.moveTo(a.x,a.y);g.lineTo(b.x,b.y);g.stroke();g.setLineDash([]);
+    const ang=Math.atan2(b.y-a.y,b.x-a.x),h=10;
+    g.beginPath();g.moveTo(b.x,b.y);
+    g.lineTo(b.x-h*Math.cos(ang-.4),b.y-h*Math.sin(ang-.4));
+    g.lineTo(b.x-h*Math.cos(ang+.4),b.y-h*Math.sin(ang+.4));
+    g.closePath();g.fill();
+  }
+  function label(p,t,col,dx,dy){const a=proj(p);g.fillStyle=col;g.font='13px ui-monospace,Menlo,monospace';g.fillText(t,a.x+(dx||6),a.y+(dy||0));}
+
+  function frame(){
+    // surface orientation R = Ry(yaw)*Rx(tilt)
+    const yaw=rad(S.surfY), tilt=rad(S.surfT);
+    const R=(v)=>rotY(rotX(v,tilt),yaw);
+    const T=norm(R(V(1,0,0))), B=norm(R(V(0,1,0))), N=norm(R(V(0,0,1)));
+    // tangent-space normal
+    const th=rad(S.theta), ph=rad(S.phi);
+    const nts=V(Math.sin(th)*Math.cos(ph), Math.sin(th)*Math.sin(ph), Math.cos(th));
+    const nw=norm(add(add(mul(T,nts.x),mul(B,nts.y)),mul(N,nts.z)));
+    return {T,B,N,nts,nw,R};
+  }
+
+  function draw3d(){
+    g.clearRect(0,0,W,H);
+    const {T,B,N,nts,nw,R}=frame();
+    // surface quad spanned by T,B
+    const s=1.15;
+    const c=[R(V(-s,-s,0)),R(V(s,-s,0)),R(V(s,s,0)),R(V(-s,s,0))].map(proj);
+    g.fillStyle='rgba(120,130,170,0.12)';g.strokeStyle='#33334a';g.lineWidth=1;
+    g.beginPath();g.moveTo(c[0].x,c[0].y);for(let i=1;i<4;i++)g.lineTo(c[i].x,c[i].y);g.closePath();g.fill();g.stroke();
+    const O=V(0,0,0);
+    // frame vectors
+    arrow(O,T,'#4fd1c5',2.5); label(T,'T','#4fd1c5');
+    arrow(O,B,'#68d391',2.5); label(B,'B','#68d391');
+    arrow(O,N,'#f6ad55',2,[5,4]); label(N,'N','#f6ad55');
+    // perturbed world normal
+    arrow(O,mul(nw,1.25),'#eef',3.5); label(mul(nw,1.25),'n_world','#eef',6,-4);
+
+    // readout
+    const enc=V(nts.x*0.5+0.5, nts.y*0.5+0.5, nts.z*0.5+0.5);
+    const r=Math.round(enc.x*255),gg=Math.round(enc.y*255),bb=Math.round(enc.z*255);
+    const f=n=>n.toFixed(2);
+    el('read3d').innerHTML=
+      '<b>stored in the map</b> (tangent space):<br>'+
+      'n_ts = ('+f(nts.x)+', '+f(nts.y)+', '+f(nts.z)+')<br>'+
+      'RGB  = ('+r+', '+gg+', '+bb+')<span class="chip" style="background:rgb('+r+','+gg+','+bb+')"></span><br><br>'+
+      '<b>frame from the mesh</b> (world):<br>'+
+      'T = ('+f(T.x)+', '+f(T.y)+', '+f(T.z)+')<br>'+
+      'B = ('+f(B.x)+', '+f(B.y)+', '+f(B.z)+')<br>'+
+      'N = ('+f(N.x)+', '+f(N.y)+', '+f(N.z)+')<br><br>'+
+      '<b>n_world = nx·T + ny·B + nz·N</b><br>'+
+      '      = ('+f(nw.x)+', '+f(nw.y)+', '+f(nw.z)+')<br><br>'+
+      '<span style="color:var(--muted)">spin the surface: n_ts &amp; RGB stay put, n_world follows.</span>';
+  }
+
+  // drag orbit
+  let drag=false,lx=0,ly=0;
+  function pos(ev){const r=c3d.getBoundingClientRect();const cx=ev.touches?ev.touches[0].clientX:ev.clientX;const cy=ev.touches?ev.touches[0].clientY:ev.clientY;return[cx,cy];}
+  c3d.addEventListener('pointerdown',e=>{drag=true;[lx,ly]=pos(e);c3d.style.cursor='grabbing';});
+  window.addEventListener('pointermove',e=>{if(!drag)return;const[x,y]=pos(e);camAz+=(x-lx)*0.01;camEl=Math.max(-1.3,Math.min(1.3,camEl+(y-ly)*0.01));lx=x;ly=y;draw3d();});
+  window.addEventListener('pointerup',()=>{drag=false;c3d.style.cursor='grab';});
+  function sync3(){el('oTheta').textContent=S.theta+'°';el('oPhi').textContent=S.phi+'°';el('oSurfT').textContent=S.surfT+'°';el('oSurfY').textContent=S.surfY+'°';}
+  for(const k of ['theta','phi','surfT','surfY']) el(k).oninput=e=>{S[k]=+e.target.value;sync3();draw3d();};
+
+  // ---------- canvas 2: UV -> tangent ----------
+  const cuvA=document.getElementById('cuvA'), ga=cuvA.getContext('2d');
+  const cuvB=document.getElementById('cuvB'), gb=cuvB.getContext('2d');
+  const CW=cuvA.width, CH=cuvA.height, pad=36;
+  // UV triangle (in [0,1]) and fixed 3D (planar) triangle positions
+  let uv=[{u:0.2,v:0.2},{u:0.8,v:0.3},{u:0.35,v:0.8}];
+  const P=[{x:-0.8,y:-0.7},{x:0.9,y:-0.5},{x:-0.2,y:0.9}]; // planar triangle (world x,y)
+  const uv2s=(p)=>[pad+p.u*(CW-2*pad), CH-pad-p.v*(CH-2*pad)];
+  const s2uv=(x,y)=>({u:(x-pad)/(CW-2*pad), v:(CH-pad-y)/(CH-2*pad)});
+  const p2s=(p)=>[CW/2+p.x*110, CH/2-p.y*110];
+
+  function computeTB(){
+    const e1={x:P[1].x-P[0].x,y:P[1].y-P[0].y};
+    const e2={x:P[2].x-P[0].x,y:P[2].y-P[0].y};
+    const du1=uv[1].u-uv[0].u, dv1=uv[1].v-uv[0].v;
+    const du2=uv[2].u-uv[0].u, dv2=uv[2].v-uv[0].v;
+    const det=du1*dv2-du2*dv1;
+    const r=det!==0?1/det:0;
+    let T={x:(e1.x*dv2-e2.x*dv1)*r, y:(e1.y*dv2-e2.y*dv1)*r};
+    let B={x:(e2.x*du1-e1.x*du2)*r, y:(e2.y*du1-e1.y*du2)*r};
+    const nT=Math.hypot(T.x,T.y)||1, nB=Math.hypot(B.x,B.y)||1;
+    return {T:{x:T.x/nT,y:T.y/nT}, B:{x:B.x/nB,y:B.y/nB}, det};
+  }
+  function gridA(){
+    ga.clearRect(0,0,CW,CH);
+    ga.strokeStyle='#191925';ga.lineWidth=1;
+    for(let i=0;i<=4;i++){const t=i/4;const a=uv2s({u:t,v:0}),b=uv2s({u:t,v:1});ga.beginPath();ga.moveTo(a[0],a[1]);ga.lineTo(b[0],b[1]);ga.stroke();
+      const c=uv2s({u:0,v:t}),d=uv2s({u:1,v:t});ga.beginPath();ga.moveTo(c[0],c[1]);ga.lineTo(d[0],d[1]);ga.stroke();}
+    ga.fillStyle='#55556e';ga.font='11px ui-monospace,Menlo';ga.fillText('U',CW-pad+4,CH-pad+4);ga.fillText('V',pad-14,pad);
+  }
+  function drawUV(){
+    gridA();
+    // triangle
+    ga.strokeStyle='#8a8ab0';ga.fillStyle='rgba(120,130,170,0.12)';ga.lineWidth=1.5;
+    ga.beginPath();uv.forEach((p,i)=>{const s=uv2s(p);i?ga.lineTo(s[0],s[1]):ga.moveTo(s[0],s[1]);});ga.closePath();ga.fill();ga.stroke();
+    const cols=['#63b3ed','#f687b3','#f6ad55'];
+    uv.forEach((p,i)=>{const s=uv2s(p);ga.fillStyle=cols[i];ga.beginPath();ga.arc(s[0],s[1],6,0,7);ga.fill();
+      ga.fillStyle='#9a9ab2';ga.font='11px ui-monospace,Menlo';ga.fillText('uv'+i,s[0]+8,s[1]-6);});
+
+    // 3D (planar) triangle + T,B
+    gb.clearRect(0,0,CW,CH);
+    gb.strokeStyle='#8a8ab0';gb.fillStyle='rgba(120,130,170,0.12)';gb.lineWidth=1.5;
+    gb.beginPath();P.forEach((p,i)=>{const s=p2s(p);i?gb.lineTo(s[0],s[1]):gb.moveTo(s[0],s[1]);});gb.closePath();gb.fill();gb.stroke();
+    P.forEach((p,i)=>{const s=p2s(p);gb.fillStyle=cols[i];gb.beginPath();gb.arc(s[0],s[1],5,0,7);gb.fill();
+      gb.fillStyle='#9a9ab2';gb.font='11px ui-monospace,Menlo';gb.fillText('p'+i,s[0]+8,s[1]-6);});
+    const {T,B,det}=computeTB();
+    const cen={x:(P[0].x+P[1].x+P[2].x)/3,y:(P[0].y+P[1].y+P[2].y)/3};
+    const cs=p2s(cen);
+    const drawArrow=(ctx,x0,y0,vx,vy,col)=>{const L=70,x1=x0+vx*L,y1=y0-vy*L;ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=3;
+      ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x1,y1);ctx.stroke();const a=Math.atan2(y0-y1,x1-x0);const h=9;
+      ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x1-h*Math.cos(-a-.4),y1-h*Math.sin(-a-.4));ctx.lineTo(x1-h*Math.cos(-a+.4),y1-h*Math.sin(-a+.4));ctx.closePath();ctx.fill();};
+    drawArrow(gb,cs[0],cs[1],T.x,T.y,'#4fd1c5');
+    drawArrow(gb,cs[0],cs[1],B.x,B.y,'#68d391');
+    gb.fillStyle='#4fd1c5';gb.font='12px ui-monospace,Menlo';gb.fillText('T',cs[0]+T.x*78,cs[1]-T.y*78);
+    gb.fillStyle='#68d391';gb.fillText('B',cs[0]+B.x*78,cs[1]-B.y*78);
+
+    const du1=uv[1].u-uv[0].u,dv1=uv[1].v-uv[0].v,du2=uv[2].u-uv[0].u,dv2=uv[2].v-uv[0].v;
+    document.getElementById('uvEq').textContent=
+      'ΔU1='+du1.toFixed(2)+'  ΔV1='+dv1.toFixed(2)+'   ΔU2='+du2.toFixed(2)+'  ΔV2='+dv2.toFixed(2)+'\n'+
+      'det = ΔU1·ΔV2 − ΔU2·ΔV1 = '+det.toFixed(3)+(det<0?'   ← negative: UVs mirrored, T flips (handedness)':'');
+  }
+  // drag UV dots
+  let dragI=-1;
+  function uvpos(ev){const r=cuvA.getBoundingClientRect();const cx=ev.touches?ev.touches[0].clientX:ev.clientX;const cy=ev.touches?ev.touches[0].clientY:ev.clientY;return[(cx-r.left)*CW/r.width,(cy-r.top)*CH/r.height];}
+  cuvA.addEventListener('pointerdown',e=>{const[x,y]=uvpos(e);dragI=-1;uv.forEach((p,i)=>{const s=uv2s(p);if(Math.hypot(s[0]-x,s[1]-y)<14)dragI=i;});});
+  window.addEventListener('pointermove',e=>{if(dragI<0)return;const[x,y]=uvpos(e);const w=s2uv(x,y);uv[dragI]={u:Math.max(0,Math.min(1,w.u)),v:Math.max(0,Math.min(1,w.v))};drawUV();});
+  window.addEventListener('pointerup',()=>{dragI=-1;});
+
+  sync3();draw3d();drawUV();
+})();
+</script>
+</body>
+</html>

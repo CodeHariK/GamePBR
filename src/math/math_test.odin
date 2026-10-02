@@ -76,3 +76,29 @@ test_orthographic_corners :: proc(t: ^testing.T) {
 	testing.expect(t, length(lo - Vec3{-1, -1, 0}) < 1e-5)
 	testing.expect(t, length(hi - Vec3{ 1,  1, 1}) < 1e-5)
 }
+
+@(test)
+test_normal_matrix_rotation :: proc(t: ^testing.T) {
+	// for a pure rotation (orthonormal), inverse-transpose == the matrix itself
+	r := mat4_rotate(Vec3{0, 1, 0}, 0.9)
+	nm := normal_matrix(r)
+	rm := mat3_from_mat4(r)
+	diff: f32 = 0
+	for i in 0 ..< 3 {
+		for j in 0 ..< 3 {
+			diff += abs(nm[i, j] - rm[i, j])
+		}
+	}
+	testing.expect(t, diff < 1e-4)
+}
+
+@(test)
+test_normal_matrix_nonuniform_scale :: proc(t: ^testing.T) {
+	// a surface normal (1,0,0) and in-plane tangent (0,1,0) under scale(2,1,1):
+	// the normal-matrix'd normal must stay perpendicular to the scaled tangent.
+	model := mat4_scale(Vec3{2, 1, 1})
+	nm := normal_matrix(model)
+	n := normalize(nm * Vec3{1, 0, 0})     // transformed normal
+	tan := mat3_from_mat4(model) * Vec3{0, 1, 0} // tangent scaled by the model
+	testing.expect(t, abs(dot(n, tan)) < 1e-5)
+}

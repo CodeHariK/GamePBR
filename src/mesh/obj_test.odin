@@ -36,3 +36,14 @@ test_obj_reads_normals :: proc(t: ^testing.T) {
 	testing.expect_value(t, len(mh.positions), 3)
 	testing.expect(t, abs(mh.normals[0].z - 1) < 1e-6)
 }
+
+@(test)
+test_tangents_plane :: proc(t: ^testing.T) {
+	mh := make_plane(1, 1)
+	defer destroy(&mh)
+	compute_tangents(&mh)
+	tan := mh.tangents[0]
+	// uv +u runs along +x, so the tangent should point ~+x and be perpendicular
+	// to the +z normal.
+	testing.expect(t, tan.x > 0.9 && abs(m.dot(tan, mh.normals[0])) < 1e-5)
+}

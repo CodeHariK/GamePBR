@@ -4,15 +4,16 @@ import "core:math"
 import "../fb"
 import m "../math"
 
-// A model-space vertex fed into the projection pipeline.
+// A model-space vertex fed into the pipeline. normal/tangent are expected in
+// WORLD space already (the draw procs transform them); only pos is projected.
 Vertex3 :: struct {
-	pos:   m.Vec3, // model space
-	color: m.Vec3, // linear 0..1
-	uv:    m.Vec2,
+	pos:     m.Vec3,
+	color:   m.Vec3,
+	uv:      m.Vec2,
+	normal:  m.Vec3,
+	tangent: m.Vec3,
 }
 
-// Project a model-space point to a screen-space Vertex, keeping inv_w = 1/clip.w
-// for perspective-correct interpolation. Returns false if behind the camera.
 project :: proc(mvp: m.Mat4, v: Vertex3, width, height: int) -> (Vertex, bool) {
 	clip := mvp * m.Vec4{v.pos.x, v.pos.y, v.pos.z, 1}
 	if clip.w <= 0 {
@@ -22,25 +23,28 @@ project :: proc(mvp: m.Mat4, v: Vertex3, width, height: int) -> (Vertex, bool) {
 	ndc := m.Vec3{clip.x * iw, clip.y * iw, clip.z * iw}
 	sx := (ndc.x * 0.5 + 0.5) * f32(width)
 	sy := (1.0 - (ndc.y * 0.5 + 0.5)) * f32(height)
-	return Vertex{pos = {sx, sy, ndc.z}, color = v.color, uv = v.uv, inv_w = iw}, true
+	return Vertex{
+		pos = {sx, sy, ndc.z}, color = v.color, uv = v.uv,
+		normal = v.normal, tangent = v.tangent, inv_w = iw,
+	}, true
 }
 
-// Project and rasterize a 3D triangle. If tex != nil, sample it with the UVs;
-// otherwise use interpolated vertex color. `correct` selects perspective-correct
-// interpolation (true) vs affine (false) — the latter only exists to show, in
-// the devlog, why perspective correction is needed.
-triangle3 :: proc(f: ^fb.Framebuffer, mvp: m.Mat4, va, vb, vc: Vertex3, tex: ^Texture, correct: bool, width, height: int) {
+// Project + rasterize a 3D triangle. Shading at each pixel:
+//   nmap != nil  -> tangent-space normal mapping, output = normal visualization
+//   tex  != nil  -> sample albedo texture
+//   else         -> interpolated vertex color
+triangle3 :: proc(f: ^fb.Framebuffer, mvp: m.Mat4, va, vb, vc: Vertex3, tex, nmap: ^Texture, correct: bool, width, height: int) {
 	a, oka := project(mvp, va, width, height)
 	b, okb := project(mvp, vb, width, height)
 	c, okc := project(mvp, vc, width, height)
 	if !oka || !okb || !okc {
 		return
 	}
-	fill(f, a, b, c, tex, correct)
+	fill(f, a, b, c, tex, nmap, correct)
 }
 
 @(private)
-fill :: proc(f: ^fb.Framebuffer, a, b, c: Vertex, tex: ^Texture, correct: bool) {
+fill :: proc(f: ^fb.Framebuffer, a, b, c: Vertex, tex, nmap: ^Texture, correct: bool) {
 	area := edge(a.pos.xy, b.pos.xy, c.pos.xy)
 	if area == 0 { return }
 	inv_area := 1.0 / area
@@ -60,32 +64,31 @@ fill :: proc(f: ^fb.Framebuffer, a, b, c: Vertex, tex: ^Texture, correct: bool) 
 			if !inside { continue }
 			l0 := w0 * inv_area; l1 := w1 * inv_area; l2 := w2 * inv_area
 
-			// Depth interpolates linearly in screen space (correct for the z-buffer).
 			z := l0 * a.pos.z + l1 * b.pos.z + l2 * c.pos.z
 			idx := y * f.width + x
 			if z >= f.depth[idx] { continue }
 
+			// Perspective-correct barycentric weights (weight by 1/w, then divide).
+			wa := l0 * a.inv_w; wb := l1 * b.inv_w; wc := l2 * c.inv_w
+			cw := correct ? 1.0 / (wa + wb + wc) : 1.0
+			if !correct { wa = l0; wb = l1; wc = l2 } // affine fallback
+
+			u := (a.uv.x * wa + b.uv.x * wb + c.uv.x * wc) * cw
+			v := (a.uv.y * wa + b.uv.y * wb + c.uv.y * wc) * cw
+
 			col: m.Vec3
-			if correct {
-				// Perspective-correct: weight attributes by 1/w, interpolate, divide.
-				iw := l0 * a.inv_w + l1 * b.inv_w + l2 * c.inv_w
-				cw := 1.0 / iw
-				if tex != nil {
-					u := (l0 * a.uv.x * a.inv_w + l1 * b.uv.x * b.inv_w + l2 * c.uv.x * c.inv_w) * cw
-					v := (l0 * a.uv.y * a.inv_w + l1 * b.uv.y * b.inv_w + l2 * c.uv.y * c.inv_w) * cw
-					col = sample(tex, u, v)
-				} else {
-					col = (a.color * (l0 * a.inv_w) + b.color * (l1 * b.inv_w) + c.color * (l2 * c.inv_w)) * cw
-				}
+			if nmap != nil {
+				N := m.normalize((a.normal * wa + b.normal * wb + c.normal * wc) * cw)
+				T := (a.tangent * wa + b.tangent * wb + c.tangent * wc) * cw
+				T = m.normalize(T - N * m.dot(N, T)) // re-orthonormalize
+				B := m.cross(N, T)
+				sn := sample_normal(nmap, u, v)          // tangent-space normal
+				wn := m.normalize(sn.x * T + sn.y * B + sn.z * N) // -> world space
+				col = normal_color(wn)
+			} else if tex != nil {
+				col = sample(tex, u, v)
 			} else {
-				// Affine: plain screen-space linear (wrong under perspective).
-				if tex != nil {
-					u := l0 * a.uv.x + l1 * b.uv.x + l2 * c.uv.x
-					v := l0 * a.uv.y + l1 * b.uv.y + l2 * c.uv.y
-					col = sample(tex, u, v)
-				} else {
-					col = a.color * l0 + b.color * l1 + c.color * l2
-				}
+				col = (a.color * wa + b.color * wb + c.color * wc) * cw
 			}
 
 			f.depth[idx] = z

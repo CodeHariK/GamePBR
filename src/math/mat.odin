@@ -117,3 +117,49 @@ mat4_look_at :: proc(eye, target, up: Vec3) -> Mat4 {
 		 0,    0,    0,     1,
 	}
 }
+
+// --- 3x3 matrices & the normal matrix (added in step 08) ---
+
+Mat3 :: matrix[3, 3]f32
+
+// Upper-left 3x3 of a 4x4 (drops translation).
+mat3_from_mat4 :: proc(m: Mat4) -> Mat3 {
+	return Mat3{
+		m[0, 0], m[0, 1], m[0, 2],
+		m[1, 0], m[1, 1], m[1, 2],
+		m[2, 0], m[2, 1], m[2, 2],
+	}
+}
+
+// Closed-form 3x3 inverse (returns the input unchanged if singular).
+mat3_inverse :: proc(m: Mat3) -> Mat3 {
+	a := m[0, 0]; b := m[0, 1]; c := m[0, 2]
+	d := m[1, 0]; e := m[1, 1]; f := m[1, 2]
+	g := m[2, 0]; h := m[2, 1]; i := m[2, 2]
+
+	det := a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g)
+	if det == 0 {
+		return m
+	}
+	inv := 1.0 / det
+	return Mat3{
+		(e * i - f * h) * inv, (c * h - b * i) * inv, (b * f - c * e) * inv,
+		(f * g - d * i) * inv, (a * i - c * g) * inv, (c * d - a * f) * inv,
+		(d * h - e * g) * inv, (b * g - a * h) * inv, (a * e - b * d) * inv,
+	}
+}
+
+mat3_transpose :: proc(m: Mat3) -> Mat3 {
+	return Mat3{
+		m[0, 0], m[1, 0], m[2, 0],
+		m[0, 1], m[1, 1], m[2, 1],
+		m[0, 2], m[1, 2], m[2, 2],
+	}
+}
+
+// The normal matrix: inverse-transpose of the model's upper-3x3. Transforming a
+// normal by this (then normalizing) keeps it perpendicular to the surface even
+// under non-uniform scale, where the plain model matrix would skew it.
+normal_matrix :: proc(model: Mat4) -> Mat3 {
+	return mat3_transpose(mat3_inverse(mat3_from_mat4(model)))
+}

@@ -4,16 +4,18 @@ import "core:math"
 import "../fb"
 import m "../math"
 
-// A screen-space vertex. `inv_w` (= 1/clip.w) and `uv` are carried so the
-// pipeline can interpolate attributes perspective-correctly.
+// A screen-space vertex. Besides screen position + depth, it carries everything
+// the pipeline interpolates perspective-correctly: color, uv, world-space normal
+// and tangent, and inv_w (= 1/clip.w).
 Vertex :: struct {
-	pos:   m.Vec3, // screen x, y + ndc z
-	color: m.Vec3, // linear 0..1
-	uv:    m.Vec2,
-	inv_w: f32,
+	pos:     m.Vec3,
+	color:   m.Vec3,
+	uv:      m.Vec2,
+	normal:  m.Vec3,
+	tangent: m.Vec3,
+	inv_w:   f32,
 }
 
-// Edge function: twice the signed area of triangle (a, b, p).
 edge :: proc(a, b, p: m.Vec2) -> f32 {
 	return (p.x - a.x) * (b.y - a.y) - (p.y - a.y) * (b.x - a.x)
 }
@@ -26,9 +28,8 @@ barycentric :: proc(a, b, c, p: m.Vec2) -> (l0, l1, l2: f32) {
 	return
 }
 
-// Affine screen-space triangle fill with linear color interpolation + depth
-// test. Correct for 2D (no perspective); the perspective-correct path used by
-// 3D geometry lives in pipeline.odin.
+// Affine 2D screen-space fill with linear color interpolation + depth test.
+// (3D geometry uses the perspective-correct path in pipeline.odin.)
 triangle :: proc(f: ^fb.Framebuffer, a, b, c: Vertex) {
 	area := edge(a.pos.xy, b.pos.xy, c.pos.xy)
 	if area == 0 { return }

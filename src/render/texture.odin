@@ -45,3 +45,28 @@ make_checker :: proc(size, checks: int, c0, c1: fb.Color) -> Texture {
 	}
 	return t
 }
+
+// A tangent-space normal map: an "egg-carton" bump field, with each texel the
+// surface normal encoded as RGB = normal*0.5 + 0.5.
+make_normal_map :: proc(size, bumps: int) -> Texture {
+	t := Texture{width = size, height = size, pixels = make([]fb.Color, size * size)}
+	freq := f32(bumps) * 2 * math.PI / f32(size)
+	slope := f32(0.8)
+	for y in 0 ..< size {
+		for x in 0 ..< size {
+			fx := freq * f32(x)
+			fy := freq * f32(y)
+			// height h = sin(fx)*sin(fy); normal = normalize(-dh/dx, -dh/dy, 1)
+			n := m.normalize(m.Vec3{-slope * math.cos(fx) * math.sin(fy), -slope * math.sin(fx) * math.cos(fy), 1})
+			e := n * 0.5 + m.Vec3{0.5, 0.5, 0.5}
+			t.pixels[y * size + x] = fb.Color{u8(e.x * 255), u8(e.y * 255), u8(e.z * 255), 255}
+		}
+	}
+	return t
+}
+
+// Decode a normal-map texel to a tangent-space normal in [-1,1].
+sample_normal :: proc(t: ^Texture, u, v: f32) -> m.Vec3 {
+	c := sample(t, u, v) // [0,1]
+	return m.normalize(c * 2 - m.Vec3{1, 1, 1})
+}

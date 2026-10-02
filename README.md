@@ -52,6 +52,10 @@ Read the matching post in [`docs/`](docs/) alongside the code. The full roadmap 
 - [Perspective projection in 5 minutes](https://www.youtube.com/watch?v=F5WA26W4JaM&list=PLWfDJ5nla8UpwShx-lzLJqcp575fKpsSO&index=12)
 - [How do Video Game Graphics Work?](https://www.youtube.com/watch?v=C8YtdC8mxTU)
 - [How LookAt Camera Really Works (Math Explained)](https://www.youtube.com/watch?v=kEojgGHnoi4)
+- [GSN Composer : Normal Mapping and Tangent Space (MikkTSpace) [Shaders Monthly #15]](https://www.youtube.com/watch?v=uqUNsQLKScs&list=PL8vNj3osX2PzZ-cNSqhA8G6C1-Li5-Ck8&index=16)
+- [Interactive Graphics 19 - Bump, Normal, Displacement, and Parallax Mapping](https://www.youtube.com/watch?v=cM7RjEtZGHw)
+- [View, World, Object, & Tangent Space - Shader Graph Basics - Episode 10](https://www.youtube.com/watch?v=E6Srr-HaicI)
+- [Explaining my game engine in 2024 - Part1: Triangle mesh tangent space, normal map identification](https://www.youtube.com/watch?v=AqRkwN3MxUI)
 
 ## Build & run
 
