@@ -19,20 +19,31 @@ DirLight :: struct {
 	intensity: f32,
 }
 
-// Surface appearance under the baseline model.
-//   albedo    – diffuse (Lambert) reflectance
-//   specular  – specular tint (white for dielectrics, colored for metals-ish)
-//   shininess – Blinn-Phong exponent: higher = tighter, sharper highlight
-Material :: struct {
-	albedo:    m.Vec3,
-	specular:  m.Vec3,
-	shininess: f32,
+// Which shading model the fragment stage runs. Baseline is step 09's
+// Lambert+Blinn-Phong; PBR is step 11's Cook-Torrance microfacet BRDF.
+ShadeModel :: enum {
+	Baseline, // zero value -> existing step-09 contexts are unchanged
+	PBR,
 }
 
-// Everything the fragment stage needs to shade a lit surface. `tex`, when set,
-// overrides `mat.albedo` with a per-pixel texture sample. `ambient` is a flat
-// fill term standing in for all the bounced light this model can't compute.
+// Surface appearance. The baseline model reads specular/shininess; the PBR model
+// reads metallic/roughness (the metallic-roughness workflow). albedo is shared:
+// for a dielectric it's the diffuse color, for a metal it tints the reflection.
+Material :: struct {
+	albedo:    m.Vec3,
+	// baseline (Blinn-Phong)
+	specular:  m.Vec3,
+	shininess: f32,
+	// PBR (Cook-Torrance)
+	metallic:  f32,
+	roughness: f32,
+}
+
+// Everything the fragment stage needs to shade a lit surface. `model` picks the
+// shading model; `tex`, when set, overrides `mat.albedo` with a per-pixel
+// texture sample; `ambient` is a flat fill standing in for bounced light.
 ShadeCtx :: struct {
+	model:   ShadeModel,
 	light:   DirLight,
 	mat:     Material,
 	eye:     m.Vec3,
@@ -40,9 +51,14 @@ ShadeCtx :: struct {
 	tex:     ^Texture,
 }
 
-// A neutral starting material.
+// A neutral baseline material.
 material_default :: proc() -> Material {
 	return Material{albedo = {0.8, 0.3, 0.25}, specular = {1, 1, 1}, shininess = 32}
+}
+
+// A PBR (metallic-roughness) material.
+pbr_material :: proc(albedo: m.Vec3, metallic, roughness: f32) -> Material {
+	return Material{albedo = albedo, metallic = metallic, roughness = roughness}
 }
 
 // Shade one point. N and V must be unit; N is the (possibly perturbed) surface

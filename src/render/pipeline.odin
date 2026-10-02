@@ -85,7 +85,12 @@ fill :: proc(f: ^fb.Framebuffer, a, b, c: Vertex, tex, nmap: ^Texture, correct: 
 				V := m.normalize(shade.eye - wp)
 				albedo := shade.mat.albedo
 				if shade.tex != nil { albedo = sample(shade.tex, u, v) }
-				col = shade_blinn_phong(shade.mat, shade.light, N, V, albedo, shade.ambient)
+				switch shade.model {
+				case .PBR:
+					col = shade_cook_torrance(shade.mat, shade.light, N, V, albedo, shade.ambient)
+				case .Baseline:
+					col = shade_blinn_phong(shade.mat, shade.light, N, V, albedo, shade.ambient)
+				}
 			} else if nmap != nil {
 				N := m.normalize((a.normal * wa + b.normal * wb + c.normal * wc) * cw)
 				T := (a.tangent * wa + b.tangent * wb + c.tangent * wc) * cw

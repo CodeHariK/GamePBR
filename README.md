@@ -44,20 +44,29 @@ Read the matching post in [`docs/`](docs/) alongside the code. The full roadmap 
 ## References
 
 - [Coding Adventure: Software Rasterizer](https://www.youtube.com/watch?v=yyJ-hdISgnw)
+- [Coding Adventure: Ray Tracing](https://www.youtube.com/watch?v=Qz0KTGYJtUk)
+- [Coding Adventure: Ray-Tracing Glass](https://www.youtube.com/watch?v=wA1KVZ1eOuA)
+- [Coding Adventure: More Ray Tracing!](https://www.youtube.com/watch?v=C1H4zIiCOaI)
 
 - https://www.songho.ca/opengl/gl_projectionmatrix.html
+
+- [How do Video Game Graphics Work?](https://www.youtube.com/watch?v=C8YtdC8mxTU)
 
 - [Lecture 07: Perspective Projection and Texture Mapping (CMU 15-462/662)](https://www.youtube.com/watch?v=_4Q4O2Kgdo4&list=PL9_jI1bdZmz2emSh0UQ5iOdT2xRHFHL7E&index=8)
 - [Intro to Graphics 06 - 3D Transformations](https://www.youtube.com/watch?v=1z1S2kQKXDs&list=PLplnkTzzqsZTfYh4UbhLGpI5kGd5oW_Hh&index=7)
 - [Quick Understanding of Homogeneous Coordinates for Computer Graphics](https://www.youtube.com/watch?v=o-xwmTODTUI)
 - [The Math behind (most) 3D games - Perspective Projection](https://www.youtube.com/watch?v=U0_ONQQ5ZNM)
 - [Perspective projection in 5 minutes](https://www.youtube.com/watch?v=F5WA26W4JaM&list=PLWfDJ5nla8UpwShx-lzLJqcp575fKpsSO&index=12)
-- [How do Video Game Graphics Work?](https://www.youtube.com/watch?v=C8YtdC8mxTU)
+
 - [How LookAt Camera Really Works (Math Explained)](https://www.youtube.com/watch?v=kEojgGHnoi4)
+
 - [GSN Composer : Normal Mapping and Tangent Space (MikkTSpace) [Shaders Monthly #15]](https://www.youtube.com/watch?v=uqUNsQLKScs&list=PL8vNj3osX2PzZ-cNSqhA8G6C1-Li5-Ck8&index=16)
 - [Interactive Graphics 19 - Bump, Normal, Displacement, and Parallax Mapping](https://www.youtube.com/watch?v=cM7RjEtZGHw)
 - [View, World, Object, & Tangent Space - Shader Graph Basics - Episode 10](https://www.youtube.com/watch?v=E6Srr-HaicI)
 - [Explaining my game engine in 2024 - Part1: Triangle mesh tangent space, normal map identification](https://www.youtube.com/watch?v=AqRkwN3MxUI)
+
+- [Physics and Math of Shading | SIGGRAPH Courses](https://www.youtube.com/watch?v=j-A0mwsJRmk)
+- [Microfacet BRDF: Theory and Implementation of Basic PBR Materials [Shaders Monthly #9]](https://www.youtube.com/watch?v=gya7x9H3mV0)
 
 ## Build & run
 
