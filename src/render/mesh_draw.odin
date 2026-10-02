@@ -62,6 +62,33 @@ draw_mesh_normalmapped :: proc(f: ^fb.Framebuffer, mvp: m.Mat4, model: m.Mat4, m
 	}
 }
 
+// Lit: Lambert diffuse + Blinn-Phong specular. World-space geometric normals
+// (via the normal matrix) and world-space positions (via `model`) are handed to
+// the fragment stage, which evaluates the baseline shading model per pixel.
+draw_mesh_lit :: proc(f: ^fb.Framebuffer, mvp: m.Mat4, model: m.Mat4, mh: ^mesh.Mesh, sh: ShadeCtx, width, height: int) {
+	nrm := m.normal_matrix(model)
+	ctx := sh
+	wpos :: proc(model: m.Mat4, p: m.Vec3) -> m.Vec3 {
+		w := model * m.Vec4{p.x, p.y, p.z, 1}
+		return m.Vec3{w.x, w.y, w.z}
+	}
+	vert :: proc(mh: ^mesh.Mesh, nrm: m.Mat3, model: m.Mat4, i: int) -> Vertex3 {
+		return Vertex3{
+			pos       = mh.positions[i],
+			world_pos = wpos(model, mh.positions[i]),
+			uv        = mh.uvs[i],
+			normal    = m.normalize(nrm * mh.normals[i]),
+		}
+	}
+	i := 0
+	for i < len(mh.indices) {
+		a := int(mh.indices[i]); b := int(mh.indices[i + 1]); c := int(mh.indices[i + 2])
+		triangle3(f, mvp, vert(mh, nrm, model, a), vert(mh, nrm, model, b), vert(mh, nrm, model, c),
+			nil, nil, true, width, height, &ctx)
+		i += 3
+	}
+}
+
 draw_wire :: proc(f: ^fb.Framebuffer, mvp: m.Mat4, mh: ^mesh.Mesh, col: fb.Color, width, height: int) {
 	i := 0
 	for i < len(mh.indices) {

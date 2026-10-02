@@ -43,6 +43,8 @@ Read the matching post in [`docs/`](docs/) alongside the code. The full roadmap 
 
 ## References
 
+- [Coding Adventure: Software Rasterizer](https://www.youtube.com/watch?v=yyJ-hdISgnw)
+
 - https://www.songho.ca/opengl/gl_projectionmatrix.html
 
 - [Lecture 07: Perspective Projection and Texture Mapping (CMU 15-462/662)](https://www.youtube.com/watch?v=_4Q4O2Kgdo4&list=PL9_jI1bdZmz2emSh0UQ5iOdT2xRHFHL7E&index=8)

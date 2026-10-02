@@ -7,11 +7,12 @@ import m "../math"
 // A model-space vertex fed into the pipeline. normal/tangent are expected in
 // WORLD space already (the draw procs transform them); only pos is projected.
 Vertex3 :: struct {
-	pos:     m.Vec3,
-	color:   m.Vec3,
-	uv:      m.Vec2,
-	normal:  m.Vec3,
-	tangent: m.Vec3,
+	pos:       m.Vec3, // model space (projected by mvp)
+	world_pos: m.Vec3, // world space (set by lit draw procs; for view vector)
+	color:     m.Vec3,
+	uv:        m.Vec2,
+	normal:    m.Vec3,
+	tangent:   m.Vec3,
 }
 
 project :: proc(mvp: m.Mat4, v: Vertex3, width, height: int) -> (Vertex, bool) {
@@ -24,27 +25,28 @@ project :: proc(mvp: m.Mat4, v: Vertex3, width, height: int) -> (Vertex, bool) {
 	sx := (ndc.x * 0.5 + 0.5) * f32(width)
 	sy := (1.0 - (ndc.y * 0.5 + 0.5)) * f32(height)
 	return Vertex{
-		pos = {sx, sy, ndc.z}, color = v.color, uv = v.uv,
+		pos = {sx, sy, ndc.z}, world_pos = v.world_pos, color = v.color, uv = v.uv,
 		normal = v.normal, tangent = v.tangent, inv_w = iw,
 	}, true
 }
 
-// Project + rasterize a 3D triangle. Shading at each pixel:
-//   nmap != nil  -> tangent-space normal mapping, output = normal visualization
-//   tex  != nil  -> sample albedo texture
+// Project + rasterize a 3D triangle. Shading at each pixel, highest priority first:
+//   shade != nil -> Lambert + Blinn-Phong lighting (albedo from shade.tex or mat)
+//   nmap  != nil -> tangent-space normal mapping, output = normal visualization
+//   tex   != nil -> sample albedo texture
 //   else         -> interpolated vertex color
-triangle3 :: proc(f: ^fb.Framebuffer, mvp: m.Mat4, va, vb, vc: Vertex3, tex, nmap: ^Texture, correct: bool, width, height: int) {
+triangle3 :: proc(f: ^fb.Framebuffer, mvp: m.Mat4, va, vb, vc: Vertex3, tex, nmap: ^Texture, correct: bool, width, height: int, shade: ^ShadeCtx = nil) {
 	a, oka := project(mvp, va, width, height)
 	b, okb := project(mvp, vb, width, height)
 	c, okc := project(mvp, vc, width, height)
 	if !oka || !okb || !okc {
 		return
 	}
-	fill(f, a, b, c, tex, nmap, correct)
+	fill(f, a, b, c, tex, nmap, correct, shade)
 }
 
 @(private)
-fill :: proc(f: ^fb.Framebuffer, a, b, c: Vertex, tex, nmap: ^Texture, correct: bool) {
+fill :: proc(f: ^fb.Framebuffer, a, b, c: Vertex, tex, nmap: ^Texture, correct: bool, shade: ^ShadeCtx = nil) {
 	area := edge(a.pos.xy, b.pos.xy, c.pos.xy)
 	if area == 0 { return }
 	inv_area := 1.0 / area
@@ -77,7 +79,14 @@ fill :: proc(f: ^fb.Framebuffer, a, b, c: Vertex, tex, nmap: ^Texture, correct: 
 			v := (a.uv.y * wa + b.uv.y * wb + c.uv.y * wc) * cw
 
 			col: m.Vec3
-			if nmap != nil {
+			if shade != nil {
+				N := m.normalize((a.normal * wa + b.normal * wb + c.normal * wc) * cw)
+				wp := (a.world_pos * wa + b.world_pos * wb + c.world_pos * wc) * cw
+				V := m.normalize(shade.eye - wp)
+				albedo := shade.mat.albedo
+				if shade.tex != nil { albedo = sample(shade.tex, u, v) }
+				col = shade_blinn_phong(shade.mat, shade.light, N, V, albedo, shade.ambient)
+			} else if nmap != nil {
 				N := m.normalize((a.normal * wa + b.normal * wb + c.normal * wc) * cw)
 				T := (a.tangent * wa + b.tangent * wb + c.tangent * wc) * cw
 				T = m.normalize(T - N * m.dot(N, T)) // re-orthonormalize

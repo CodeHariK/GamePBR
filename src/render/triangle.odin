@@ -8,12 +8,13 @@ import m "../math"
 // the pipeline interpolates perspective-correctly: color, uv, world-space normal
 // and tangent, and inv_w (= 1/clip.w).
 Vertex :: struct {
-	pos:     m.Vec3,
-	color:   m.Vec3,
-	uv:      m.Vec2,
-	normal:  m.Vec3,
-	tangent: m.Vec3,
-	inv_w:   f32,
+	pos:       m.Vec3,
+	world_pos: m.Vec3, // world-space position, for view-dependent shading
+	color:     m.Vec3,
+	uv:        m.Vec2,
+	normal:    m.Vec3,
+	tangent:   m.Vec3,
+	inv_w:     f32,
 }
 
 edge :: proc(a, b, p: m.Vec2) -> f32 {
