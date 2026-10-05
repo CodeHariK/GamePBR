@@ -62,28 +62,33 @@ draw_mesh_normalmapped :: proc(f: ^fb.Framebuffer, mvp: m.Mat4, model: m.Mat4, m
 	}
 }
 
-// Lit: Lambert diffuse + Blinn-Phong specular. World-space geometric normals
-// (via the normal matrix) and world-space positions (via `model`) are handed to
-// the fragment stage, which evaluates the baseline shading model per pixel.
+// Lit: world-space normals (via the normal matrix), tangents and positions (via
+// `model`) are handed to the fragment stage, which evaluates the shading model
+// chosen by sh.model (Baseline or PBR) per pixel, with any maps in sh.
 draw_mesh_lit :: proc(f: ^fb.Framebuffer, mvp: m.Mat4, model: m.Mat4, mh: ^mesh.Mesh, sh: ShadeCtx, width, height: int) {
 	nrm := m.normal_matrix(model)
+	m3 := m.mat3_from_mat4(model)
 	ctx := sh
 	wpos :: proc(model: m.Mat4, p: m.Vec3) -> m.Vec3 {
 		w := model * m.Vec4{p.x, p.y, p.z, 1}
 		return m.Vec3{w.x, w.y, w.z}
 	}
-	vert :: proc(mh: ^mesh.Mesh, nrm: m.Mat3, model: m.Mat4, i: int) -> Vertex3 {
+	// Tangents are optional: only meshes that ran compute_tangents have them,
+	// and only a ctx with nrm_tex reads them.
+	vert :: proc(mh: ^mesh.Mesh, nrm, m3: m.Mat3, model: m.Mat4, i: int) -> Vertex3 {
+		t := i < len(mh.tangents) ? m.normalize(m3 * mh.tangents[i]) : m.Vec3{}
 		return Vertex3{
 			pos       = mh.positions[i],
 			world_pos = wpos(model, mh.positions[i]),
 			uv        = mh.uvs[i],
 			normal    = m.normalize(nrm * mh.normals[i]),
+			tangent   = t,
 		}
 	}
 	i := 0
 	for i < len(mh.indices) {
 		a := int(mh.indices[i]); b := int(mh.indices[i + 1]); c := int(mh.indices[i + 2])
-		triangle3(f, mvp, vert(mh, nrm, model, a), vert(mh, nrm, model, b), vert(mh, nrm, model, c),
+		triangle3(f, mvp, vert(mh, nrm, m3, model, a), vert(mh, nrm, m3, model, b), vert(mh, nrm, m3, model, c),
 			nil, nil, true, width, height, &ctx)
 		i += 3
 	}

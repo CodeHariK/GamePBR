@@ -40,8 +40,11 @@ Material :: struct {
 }
 
 // Everything the fragment stage needs to shade a lit surface. `model` picks the
-// shading model; `tex`, when set, overrides `mat.albedo` with a per-pixel
-// texture sample; `ambient` is a flat fill standing in for bounced light.
+// shading model; `ambient` is a flat fill standing in for bounced light.
+// Optional maps (glTF semantics, see material_maps.odin):
+//   tex     – albedo map, multiplied by mat.albedo
+//   mr_tex  – metallic-roughness map (G = roughness, B = metallic), × factors
+//   nrm_tex – tangent-space normal map (needs mesh tangents)
 ShadeCtx :: struct {
 	model:   ShadeModel,
 	light:   DirLight,
@@ -49,6 +52,8 @@ ShadeCtx :: struct {
 	eye:     m.Vec3,
 	ambient: m.Vec3,
 	tex:     ^Texture,
+	mr_tex:  ^Texture,
+	nrm_tex: ^Texture,
 }
 
 // A neutral baseline material.

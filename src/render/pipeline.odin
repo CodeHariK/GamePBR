@@ -81,24 +81,23 @@ fill :: proc(f: ^fb.Framebuffer, a, b, c: Vertex, tex, nmap: ^Texture, correct: 
 			col: m.Vec3
 			if shade != nil {
 				N := m.normalize((a.normal * wa + b.normal * wb + c.normal * wc) * cw)
+				if shade.nrm_tex != nil {
+					T := (a.tangent * wa + b.tangent * wb + c.tangent * wc) * cw
+					N = perturb_normal(N, T, sample_normal(shade.nrm_tex, u, v))
+				}
 				wp := (a.world_pos * wa + b.world_pos * wb + c.world_pos * wc) * cw
 				V := m.normalize(shade.eye - wp)
-				albedo := shade.mat.albedo
-				if shade.tex != nil { albedo = sample(shade.tex, u, v) }
+				mat, albedo := resolve_material(shade.mat, shade.tex, shade.mr_tex, u, v)
 				switch shade.model {
 				case .PBR:
-					col = shade_cook_torrance(shade.mat, shade.light, N, V, albedo, shade.ambient)
+					col = shade_cook_torrance(mat, shade.light, N, V, albedo, shade.ambient)
 				case .Baseline:
-					col = shade_blinn_phong(shade.mat, shade.light, N, V, albedo, shade.ambient)
+					col = shade_blinn_phong(mat, shade.light, N, V, albedo, shade.ambient)
 				}
 			} else if nmap != nil {
 				N := m.normalize((a.normal * wa + b.normal * wb + c.normal * wc) * cw)
 				T := (a.tangent * wa + b.tangent * wb + c.tangent * wc) * cw
-				T = m.normalize(T - N * m.dot(N, T)) // re-orthonormalize
-				B := m.cross(N, T)
-				sn := sample_normal(nmap, u, v)          // tangent-space normal
-				wn := m.normalize(sn.x * T + sn.y * B + sn.z * N) // -> world space
-				col = normal_color(wn)
+				col = normal_color(perturb_normal(N, T, sample_normal(nmap, u, v)))
 			} else if tex != nil {
 				col = sample(tex, u, v)
 			} else {
