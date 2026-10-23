@@ -27,7 +27,7 @@ Learning project: every step ships working code **and** a blog-style write-up in
 - [x] **10 — PBR theory** · radiometry, the rendering equation, BRDF, energy conservation → [docs/10-pbr-theory.md](docs/10-pbr-theory.md)
 - [x] **11 — Cook-Torrance direct lighting** · GGX (D), Smith (G), Fresnel-Schlick (F) → [docs/11-cook-torrance.md](docs/11-cook-torrance.md)
 - [x] **12 — Metallic-roughness workflow** · albedo/metallic/roughness textures, F0 → [docs/12-metallic-roughness.md](docs/12-metallic-roughness.md)
-- [ ] **13 — Multiple & typed lights** · point, directional, spot; attenuation → [docs/13-lights.md](docs/13-lights.md)
+- [x] **13 — Multiple & typed lights** · point, directional, spot; attenuation → [docs/13-lights.md](docs/13-lights.md)
 - [ ] **14 — Tonemapping & gamma** · HDR → LDR (ACES/Reinhard), sRGB correction → [docs/14-tonemapping.md](docs/14-tonemapping.md)
 
 ## Phase 3 — Image-based lighting

@@ -37,6 +37,8 @@ Material :: struct {
 	// PBR (Cook-Torrance)
 	metallic:  f32,
 	roughness: f32,
+	// light the surface itself gives off, added unlit (glTF emissiveFactor)
+	emissive:  m.Vec3,
 }
 
 // Everything the fragment stage needs to shade a lit surface. `model` picks the
@@ -47,7 +49,8 @@ Material :: struct {
 //   nrm_tex – tangent-space normal map (needs mesh tangents)
 ShadeCtx :: struct {
 	model:   ShadeModel,
-	light:   DirLight,
+	light:   DirLight, // used only when `lights` is empty (steps 09-12)
+	lights:  []Light,  // any mix of directional / point / spot (step 13)
 	mat:     Material,
 	eye:     m.Vec3,
 	ambient: m.Vec3,
@@ -77,17 +80,18 @@ pbr_material :: proc(albedo: m.Vec3, metallic, roughness: f32) -> Material {
 // Specular is gated on N·L > 0 so highlights never appear on unlit back-faces.
 shade_blinn_phong :: proc(mat: Material, light: DirLight, N, V, albedo, ambient: m.Vec3) -> m.Vec3 {
 	L := m.normalize(-light.dir)
+	return ambient * albedo + brdf_blinn_phong(mat, N, V, L, albedo) * (light.color * light.intensity)
+}
+
+// Per-light baseline term for one incoming direction L (multiply by radiance).
+brdf_blinn_phong :: proc(mat: Material, N, V, L, albedo: m.Vec3) -> m.Vec3 {
 	ndl := m.saturate(m.dot(N, L))
-
 	diffuse := albedo * ndl
-
 	spec := m.Vec3{}
 	if ndl > 0 {
 		H := m.normalize(L + V)
 		ndh := m.saturate(m.dot(N, H))
 		spec = mat.specular * math.pow(ndh, mat.shininess)
 	}
-
-	radiance := light.color * light.intensity
-	return ambient * albedo + (diffuse + spec) * radiance
+	return diffuse + spec
 }

@@ -56,9 +56,16 @@ f0_from :: proc(albedo: m.Vec3, metallic: f32) -> m.Vec3 {
 // N, V unit and in world space. Returns outgoing radiance (+ ambient fill).
 shade_cook_torrance :: proc(mat: Material, light: DirLight, N, V, albedo, ambient: m.Vec3) -> m.Vec3 {
 	L := m.normalize(-light.dir)
+	return ambient * albedo + brdf_cook_torrance(mat, N, V, L, albedo) * (light.color * light.intensity)
+}
+
+// The per-light term f(V, L) · (N·L) of the rendering equation for one
+// incoming direction L: diffuse + specular, already multiplied by the cosine.
+// Multiply by the radiance arriving from L and sum over lights (step 13).
+brdf_cook_torrance :: proc(mat: Material, N, V, L, albedo: m.Vec3) -> m.Vec3 {
 	ndl := m.saturate(m.dot(N, L))
 	if ndl <= 0 {
-		return ambient * albedo
+		return {}
 	}
 	ndv := m.saturate(m.dot(N, V))
 	H := m.normalize(V + L)
@@ -77,8 +84,7 @@ shade_cook_torrance :: proc(mat: Material, light: DirLight, N, V, albedo, ambien
 	kd := (m.Vec3{1, 1, 1} - F) * (1 - mat.metallic)
 	diffuse := kd * albedo / math.PI
 
-	radiance := light.color * light.intensity
-	return ambient * albedo + (diffuse + spec) * radiance * ndl
+	return (diffuse + spec) * ndl
 }
 
 // Directional-hemispherical reflectance of ONLY the Cook-Torrance specular lobe,
