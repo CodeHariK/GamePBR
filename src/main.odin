@@ -36,31 +36,31 @@ main :: proc() {
 	f := fb.create(WIDTH, HEIGHT)
 	defer fb.destroy(&f)
 
-	// --- 1. one point light over the floor: the inverse-square pool ---
-	falloff := [?]render.Light{render.point_light(m.Vec3{0, FLOOR_Y + 1.0, 0}, m.Vec3{1, 1, 1}, 3)}
-	begin(&f)
-	draw_floor(&f, &s, falloff[:])
-	draw_markers(&f, &s, falloff[:])
-	if utils.write_png(&f, "lights_point.png") { fmt.println("wrote lights_point.png") }
+	// --- 1. the operators themselves: HDR ramps through each display transform ---
+	draw_ramps(&f)
+	if utils.write_png(&f, "tone_ramps.png") { fmt.println("wrote tone_ramps.png") }
 
-	// --- 2. a spot light: a cone with a soft inner→outer edge ---
-	spot := [?]render.Light{
-		render.spot_light(m.Vec3{2.2, 2.6, 1.6}, m.Vec3{-2.2, -3.6, -1.6}, m.Vec3{1, 1, 1}, 50,
-			math.to_radians_f32(14), math.to_radians_f32(24)),
-	}
-	begin(&f)
-	draw_floor(&f, &s, spot[:])
-	draw_ball(&f, &s, m.Vec3{0, FLOOR_Y + 0.7, 0}, 0.7, render.pbr_material(m.Vec3{0.9, 0.9, 0.9}, 0, 0.5), spot[:])
-	draw_markers(&f, &s, spot[:])
-	if utils.write_png(&f, "lights_spot.png") { fmt.println("wrote lights_spot.png") }
-
-	// --- 3. everything: warm + cool points, a white spot, dim blue moonlight ---
+	// --- 2. render the four-light scene ONCE into the HDR buffer... ---
 	scene := scene_lights(0)
 	begin(&f)
 	draw_scene(&f, &s, scene[:])
-	if utils.write_png(&f, "lights_scene.png") { fmt.println("wrote lights_scene.png") }
 
-	// --- live: the two point lights orbit the spheres ---
+	// --- ...then resolve it six ways. No re-rendering: that's what HDR buys. ---
+	Look :: struct { name: string, d: utils.Display }
+	looks := [?]Look{
+		{"tone_clamp_linear.png", {op = .Clamp, srgb = false}},  // steps 09-13
+		{"tone_clamp_srgb.png",   {op = .Clamp, srgb = true}},
+		{"tone_reinhard.png",     {op = .Reinhard, srgb = true}},
+		{"tone_aces.png",         {op = .ACES, srgb = true}},
+		{"tone_aces_ev-1.png",    {op = .ACES, exposure_ev = -1, srgb = true}},
+		{"tone_aces_ev+1.png",    {op = .ACES, exposure_ev = 1, srgb = true}},
+	}
+	for l in looks {
+		utils.resolve(&f, l.d)
+		if utils.write_png(&f, l.name) { fmt.println("wrote", l.name) }
+	}
+
+	// --- live: orbiting lights, ACES + sRGB ---
 	display := display_raylib_create(WIDTH, HEIGHT, "GamePBR")
 	defer display.destroy(&display)
 	frame := 0
@@ -70,8 +70,38 @@ main :: proc() {
 		live := scene_lights(f32(frame) * 0.02)
 		begin(&f)
 		draw_scene(&f, &s, live[:])
+		utils.resolve(&f, utils.display_default())
 		display.present(&display, &f)
 		frame += 1
+	}
+}
+
+// Four horizontal bands, one per display transform. Within each band x is HDR
+// radiance on a log scale from 1/16 (left) to 16 (right) — 1.0 sits at the
+// centre, marked by a thin line. Top of each band: grey; bottom: saturated
+// orange, to show what each operator does to hue as it brightens.
+draw_ramps :: proc(f: ^fb.Framebuffer) {
+	bands := [4]utils.Display{
+		{op = .Clamp, srgb = false},
+		{op = .Clamp, srgb = true},
+		{op = .Reinhard, srgb = true},
+		{op = .ACES, srgb = true},
+	}
+	orange := m.Vec3{1.0, 0.45, 0.12}
+	bh := f.height / 4
+	for y in 0 ..< f.height {
+		band := min(y / bh, 3)
+		row := y - band * bh
+		for x in 0 ..< f.width {
+			idx := y * f.width + x
+			if row < 3 || x == f.width / 2 {
+				f.pixels[idx] = fb.Color{60, 60, 70, 255} // separators + the 1.0 mark
+				continue
+			}
+			r := math.pow(f32(2), -4 + 8 * f32(x) / f32(f.width))
+			c := row < bh * 3 / 5 ? m.Vec3{r, r, r} : orange * r
+			f.pixels[idx] = utils.encode_pixel(c, bands[band])
+		}
 	}
 }
 
@@ -99,6 +129,7 @@ draw_scene :: proc(f: ^fb.Framebuffer, s: ^Scene, lights: []render.Light) {
 
 begin :: proc(f: ^fb.Framebuffer) {
 	fb.clear(f, BG)
+	fb.clear_hdr(f, utils.srgb_to_linear3(utils.to_vec3(BG))) // same color, linear
 	fb.clear_depth(f, 1.0)
 }
 

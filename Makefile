@@ -15,5 +15,6 @@ test:
 	$(ODIN) test src/math
 	$(ODIN) test src/render
 	$(ODIN) test src/mesh
+	$(ODIN) test src/utils
 
 .PHONY: run release test

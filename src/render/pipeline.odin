@@ -100,7 +100,8 @@ fill :: proc(f: ^fb.Framebuffer, a, b, c: Vertex, tex, nmap: ^Texture, correct: 
 			}
 
 			f.depth[idx] = z
-			f.pixels[idx] = fb.Color{
+			f.hdr[idx] = col // unclamped linear radiance; utils.resolve tonemaps it
+			f.pixels[idx] = fb.Color{ // legacy direct output: clamp, no sRGB
 				r = u8(m.saturate(col.x) * 255),
 				g = u8(m.saturate(col.y) * 255),
 				b = u8(m.saturate(col.z) * 255),

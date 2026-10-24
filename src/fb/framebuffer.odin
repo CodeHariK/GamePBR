@@ -6,8 +6,9 @@ package fb
 Framebuffer :: struct {
 	width:  int,
 	height: int,
-	pixels: []Color, // length == width*height
-	depth:  []f32,   // length == width*height; smaller = nearer
+	pixels: []Color,  // length == width*height; display-ready 8-bit
+	depth:  []f32,    // length == width*height; smaller = nearer
+	hdr:    [][3]f32, // length == width*height; linear radiance, unclamped (step 14)
 }
 
 create :: proc(width, height: int) -> Framebuffer {
@@ -16,14 +17,26 @@ create :: proc(width, height: int) -> Framebuffer {
 		height = height,
 		pixels = make([]Color, width * height),
 		depth  = make([]f32, width * height),
+		hdr    = make([][3]f32, width * height),
 	}
 }
 
 destroy :: proc(f: ^Framebuffer) {
 	delete(f.pixels)
 	delete(f.depth)
+	delete(f.hdr)
 	f.pixels = nil
 	f.depth = nil
+	f.hdr = nil
+}
+
+// Fill the HDR buffer with a LINEAR radiance (e.g. a background "sky" value).
+// Kept separate from clear(): the 8-bit and HDR backgrounds live in different
+// color spaces, so the caller states both explicitly.
+clear_hdr :: proc(f: ^Framebuffer, c: [3]f32) {
+	for &p in f.hdr {
+		p = c
+	}
 }
 
 clear :: proc(f: ^Framebuffer, c: Color) {

@@ -28,7 +28,7 @@ Learning project: every step ships working code **and** a blog-style write-up in
 - [x] **11 — Cook-Torrance direct lighting** · GGX (D), Smith (G), Fresnel-Schlick (F) → [docs/11-cook-torrance.md](docs/11-cook-torrance.md)
 - [x] **12 — Metallic-roughness workflow** · albedo/metallic/roughness textures, F0 → [docs/12-metallic-roughness.md](docs/12-metallic-roughness.md)
 - [x] **13 — Multiple & typed lights** · point, directional, spot; attenuation → [docs/13-lights.md](docs/13-lights.md)
-- [ ] **14 — Tonemapping & gamma** · HDR → LDR (ACES/Reinhard), sRGB correction → [docs/14-tonemapping.md](docs/14-tonemapping.md)
+- [x] **14 — Tonemapping & gamma** · HDR → LDR (ACES/Reinhard), sRGB correction → [docs/14-tonemapping.md](docs/14-tonemapping.md)
 
 ## Phase 3 — Image-based lighting
 - [ ] **15 — Diffuse IBL** · equirectangular env map, irradiance convolution → [docs/15-ibl-diffuse.md](docs/15-ibl-diffuse.md)
