@@ -31,7 +31,7 @@ Learning project: every step ships working code **and** a blog-style write-up in
 - [x] **14 — Tonemapping & gamma** · HDR → LDR (ACES/Reinhard), sRGB correction → [docs/14-tonemapping.md](docs/14-tonemapping.md)
 
 ## Phase 3 — Image-based lighting
-- [ ] **15 — Diffuse IBL** · equirectangular env map, irradiance convolution → [docs/15-ibl-diffuse.md](docs/15-ibl-diffuse.md)
+- [x] **15 — Diffuse IBL** · equirectangular env map, irradiance convolution → [docs/15-ibl-diffuse.md](docs/15-ibl-diffuse.md)
 - [ ] **16 — Specular IBL** · split-sum: prefiltered env map + BRDF LUT → [docs/16-ibl-specular.md](docs/16-ibl-specular.md)
 
 ## Phase 4 — Speed & the jump to GPU

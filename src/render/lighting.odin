@@ -57,6 +57,7 @@ ShadeCtx :: struct {
 	tex:     ^Texture,
 	mr_tex:  ^Texture,
 	nrm_tex: ^Texture,
+	env_irr: ^EnvMap, // irradiance map; when set (PBR), replaces `ambient` (step 15)
 }
 
 // A neutral baseline material.
