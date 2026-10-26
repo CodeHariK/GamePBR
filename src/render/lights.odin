@@ -99,7 +99,9 @@ brdf_eval :: proc(model: ShadeModel, mat: Material, N, V, L, albedo: m.Vec3) -> 
 // single directional `light`, so every step-09..12 context renders unchanged.
 shade_surface :: proc(sh: ^ShadeCtx, mat: Material, N, V, P, albedo: m.Vec3) -> m.Vec3 {
 	col := mat.emissive
-	if sh.env_irr != nil && sh.model == .PBR {
+	if sh.ibl != nil && sh.model == .PBR {
+		col += ibl_total(mat, N, V, albedo, sh.ibl) // the sky: diffuse + reflections
+	} else if sh.env_irr != nil && sh.model == .PBR {
 		col += ibl_diffuse(mat, N, V, albedo, sh.env_irr) // the sky, replacing ambient
 	} else {
 		col += sh.ambient * albedo

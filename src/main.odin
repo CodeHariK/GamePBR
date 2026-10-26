@@ -2,6 +2,7 @@ package main
 
 import "core:fmt"
 import "core:math"
+import "core:time"
 import "fb"
 import m "math"
 import "mesh"
@@ -12,55 +13,44 @@ WIDTH  :: 960
 HEIGHT :: 540
 
 SUN_DIR :: m.Vec3{0.55, 0.55, 0.62} // upper right, toward the camera
+BASE    :: m.Vec3{0.92, 0.46, 0.40} // step 11's grid colour, for comparison
 
 main :: proc() {
 	sphere := mesh.make_sphere(1.0, 64, 48)
 	defer mesh.destroy(&sphere)
 
-	// --- the environment: a 512×256 HDR sky, and its irradiance map ---
+	// --- precompute everything IBL needs from one environment ---
 	env := render.make_sky_env(512, 256, SUN_DIR)
 	defer render.env_destroy(&env)
-	small := render.env_downsample(&env, 4) // 128×64 is plenty to convolve
-	defer render.env_destroy(&small)
-	irr := render.convolve_irradiance(&small, 32, 16)
-	defer render.env_destroy(&irr)
+	t0 := time.tick_now()
+	ibl := render.make_ibl_maps(&env, render.ibl_settings_default())
+	defer render.ibl_maps_destroy(&ibl)
+	fmt.printfln("IBL precompute: %.0f ms", time.duration_milliseconds(time.tick_since(t0)))
 
 	aces := utils.display_default()
 
-	// --- 1. the maps themselves, as lat-long images ---
-	write_env_image(&env, aces, 1, "ibl_env.png")
-	// E/π = the radiance a white Lambert surface facing that way would reflect,
-	// which puts the irradiance map on the same scale as the sky it came from.
-	write_env_image(&irr, aces, 1 / math.PI, "ibl_irradiance.png")
+	// --- 1. the precomputed data ---
+	write_prefiltered_strip(&ibl, aces, "ibl_prefiltered.png")
+	write_brdf_lut(&ibl.lut, "ibl_brdf_lut.png")
 
 	f := fb.create(WIDTH, HEIGHT)
 	defer fb.destroy(&f)
 
-	// --- 2. flat ambient vs. diffuse IBL, same sphere, same sky ---
-	cam := render.Camera{
-		eye = {0, 0.3, 4.2}, target = {0, 0, 0}, up = {0, 1, 0},
-		fov_y = 1.0472, aspect = f32(WIDTH) / f32(HEIGHT), near = 0.1, far = 100,
-	}
-	grey := render.pbr_material(m.Vec3{0.8, 0.8, 0.8}, 0, 0.9)
-	flat := render.ShadeCtx{model = .PBR, mat = grey, eye = cam.eye, ambient = env_mean(&small)}
-	lit := render.ShadeCtx{model = .PBR, mat = grey, eye = cam.eye, env_irr = &irr}
-	render.draw_env_background(&f, cam, &env)
-	fb.clear_depth(&f, 1.0)
-	draw_ball(&f, cam, &sphere, m.Vec3{-1.15, 0, 0}, 0.95, flat)
-	draw_ball(&f, cam, &sphere, m.Vec3{1.15, 0, 0}, 0.95, lit)
-	utils.resolve(&f, aces)
-	if utils.write_png(&f, "ibl_ambient_vs_ibl.png") { fmt.println("wrote ibl_ambient_vs_ibl.png") }
-
-	// --- 3. materials lit by the sky alone (no punctual lights) ---
+	// --- 2. step 15's material row, now with reflections ---
 	row_cam := render.Camera{
 		eye = {0, 0.4, 5.0}, target = {0, 0, 0}, up = {0, 1, 0},
 		fov_y = 1.0472, aspect = f32(WIDTH) / f32(HEIGHT), near = 0.1, far = 100,
 	}
-	draw_material_row(&f, row_cam, &sphere, &env, &irr)
+	draw_material_row(&f, row_cam, &sphere, &env, &ibl)
 	utils.resolve(&f, aces)
 	if utils.write_png(&f, "ibl_materials.png") { fmt.println("wrote ibl_materials.png") }
 
-	// --- live: orbit the camera; the sky turns behind the spheres ---
+	// --- 3. step 11's metallic × roughness chart, lit by the sky alone ---
+	draw_grid(&f, &sphere, &env, &ibl)
+	utils.resolve(&f, aces)
+	if utils.write_png(&f, "ibl_grid.png") { fmt.println("wrote ibl_grid.png") }
+
+	// --- live: orbit the camera around the row ---
 	display := display_raylib_create(WIDTH, HEIGHT, "GamePBR")
 	defer display.destroy(&display)
 	frame := 0
@@ -70,15 +60,19 @@ main :: proc() {
 		a := f32(frame) * 0.01
 		orbit := row_cam
 		orbit.eye = m.Vec3{5.0 * math.sin(a), 0.4, 5.0 * math.cos(a)}
-		draw_material_row(&f, orbit, &sphere, &env, &irr)
+		draw_material_row(&f, orbit, &sphere, &env, &ibl)
 		utils.resolve(&f, aces)
 		display.present(&display, &f)
 		frame += 1
 	}
 }
 
+ibl_ctx :: proc(cam: render.Camera, mat: render.Material, ibl: ^render.IBLMaps) -> render.ShadeCtx {
+	return render.ShadeCtx{model = .PBR, mat = mat, eye = cam.eye, ibl = ibl}
+}
+
 // White rough, red plastic, teal plastic, gold metal — sky lighting only.
-draw_material_row :: proc(f: ^fb.Framebuffer, cam: render.Camera, sphere: ^mesh.Mesh, env, irr: ^render.EnvMap) {
+draw_material_row :: proc(f: ^fb.Framebuffer, cam: render.Camera, sphere: ^mesh.Mesh, env: ^render.EnvMap, ibl: ^render.IBLMaps) {
 	render.draw_env_background(f, cam, env)
 	fb.clear_depth(f, 1.0)
 	mats := [4]render.Material{
@@ -88,9 +82,25 @@ draw_material_row :: proc(f: ^fb.Framebuffer, cam: render.Camera, sphere: ^mesh.
 		render.pbr_material(m.Vec3{1.00, 0.77, 0.34}, 1, 0.3),
 	}
 	for mat, i in mats {
-		x := (f32(i) - 1.5) * 1.45
-		sh := render.ShadeCtx{model = .PBR, mat = mat, eye = cam.eye, env_irr = irr}
-		draw_ball(f, cam, sphere, m.Vec3{x, 0, 0}, 0.62, sh)
+		draw_ball(f, cam, sphere, m.Vec3{(f32(i) - 1.5) * 1.45, 0, 0}, 0.62, ibl_ctx(cam, mat, ibl))
+	}
+}
+
+// Rows: dielectric (top), metal (bottom). Columns: roughness 0.05 → 1.0.
+draw_grid :: proc(f: ^fb.Framebuffer, sphere: ^mesh.Mesh, env: ^render.EnvMap, ibl: ^render.IBLMaps) {
+	cam := render.Camera{
+		eye = {0, 0, 7.5}, target = {0, 0, 0}, up = {0, 1, 0},
+		fov_y = 1.0472, aspect = f32(WIDTH) / f32(HEIGHT), near = 0.1, far = 100,
+	}
+	render.draw_env_background(f, cam, env)
+	fb.clear_depth(f, 1.0)
+	rough := [7]f32{0.05, 0.15, 0.3, 0.45, 0.6, 0.8, 1.0}
+	for r in 0 ..< 2 {
+		for c in 0 ..< 7 {
+			pos := m.Vec3{(f32(c) - 3) * 1.25, r == 0 ? 0.85 : -0.85, 0}
+			mat := render.pbr_material(BASE, f32(r), rough[c])
+			draw_ball(f, cam, sphere, pos, 0.52, ibl_ctx(cam, mat, ibl))
+		}
 	}
 }
 
@@ -99,32 +109,36 @@ draw_ball :: proc(f: ^fb.Framebuffer, cam: render.Camera, sphere: ^mesh.Mesh, po
 	render.draw_mesh_lit(f, render.camera_view_proj(cam) * model, model, sphere, sh, WIDTH, HEIGHT)
 }
 
-// Solid-angle-weighted mean radiance of an environment: the single flat
-// "ambient" colour that delivers the same TOTAL light as the sky.
-env_mean :: proc(e: ^render.EnvMap) -> m.Vec3 {
-	acc := m.Vec3{}
-	total: f32 = 0
-	for y in 0 ..< e.height {
-		dw := render.env_texel_solid_angle(e, y)
-		for x in 0 ..< e.width {
-			acc += e.px[y * e.width + x] * dw
-			total += dw
-		}
-	}
-	return acc / total
-}
-
-// Show a lat-long map (×scale) as a 2:1 image, bilinear-upscaled to 768×384.
-write_env_image :: proc(e: ^render.EnvMap, d: utils.Display, scale: f32, path: string) {
-	img := fb.create(768, 384)
+// The five prefiltered levels side by side (roughness 0 → 1, left to right),
+// each upscaled to 256×128.
+write_prefiltered_strip :: proc(ibl: ^render.IBLMaps, d: utils.Display, path: string) {
+	cw :: 256; ch :: 128
+	img := fb.create(cw * render.PREFILTER_LEVELS, ch)
 	defer fb.destroy(&img)
-	for y in 0 ..< img.height {
-		for x in 0 ..< img.width {
-			u := (f32(x) + 0.5) / f32(img.width)
-			v := (f32(y) + 0.5) / f32(img.height)
-			img.hdr[y * img.width + x] = render.env_sample_uv(e, u, v) * scale
+	for lv in 0 ..< render.PREFILTER_LEVELS {
+		for y in 0 ..< ch {
+			for x in 0 ..< cw {
+				u := (f32(x) + 0.5) / cw
+				v := (f32(y) + 0.5) / ch
+				img.hdr[y * img.width + lv * cw + x] = render.env_sample_uv(&ibl.prefiltered[lv], u, v)
+			}
 		}
 	}
 	utils.resolve(&img, d)
+	if utils.write_png(&img, path) { fmt.println("wrote", path) }
+}
+
+// The LUT as an image: red = A, green = B (raw values, no tonemap).
+// x = n·v (0 left → 1 right), y = roughness (0 top → 1 bottom).
+write_brdf_lut :: proc(lut: ^render.BrdfLut, path: string) {
+	size :: 256
+	img := fb.create(size, size)
+	defer fb.destroy(&img)
+	for y in 0 ..< size {
+		for x in 0 ..< size {
+			ab := render.brdf_lut_sample(lut, (f32(x) + 0.5) / size, (f32(y) + 0.5) / size)
+			img.pixels[y * size + x] = utils.to_color(m.Vec3{ab.x, ab.y, 0})
+		}
+	}
 	if utils.write_png(&img, path) { fmt.println("wrote", path) }
 }

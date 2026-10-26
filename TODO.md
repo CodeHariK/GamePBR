@@ -32,7 +32,7 @@ Learning project: every step ships working code **and** a blog-style write-up in
 
 ## Phase 3 — Image-based lighting
 - [x] **15 — Diffuse IBL** · equirectangular env map, irradiance convolution → [docs/15-ibl-diffuse.md](docs/15-ibl-diffuse.md)
-- [ ] **16 — Specular IBL** · split-sum: prefiltered env map + BRDF LUT → [docs/16-ibl-specular.md](docs/16-ibl-specular.md)
+- [x] **16 — Specular IBL** · split-sum: prefiltered env map + BRDF LUT → [docs/16-ibl-specular.md](docs/16-ibl-specular.md)
 
 ## Phase 4 — Speed & the jump to GPU
 - [ ] **17 — Performance pass** · multithreaded tiles, SIMD, profiling → [docs/17-performance.md](docs/17-performance.md)
